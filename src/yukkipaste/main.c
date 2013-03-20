@@ -299,7 +299,7 @@ static int escape_json_string(YUString *out, char *in, size_t len) {
         case '\\': yu_string_append0(out,"\\\\");continue;
       }
       if (unichar < 32) {
-        yu_string_sprintfa(out, "\\x%02x",unichar);
+        yu_string_sprintfa(out, "\\u%04x",unichar);
         continue;
       }
       yu_string_append(out,(char*)oldp,(size_t)skiplen);

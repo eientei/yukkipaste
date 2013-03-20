@@ -26,10 +26,13 @@ crossbuilds:
 			CMAKE_OPTS=-DCMAKE_TOOLCHAIN_FILE="$$(pwd)/$$chen" \
 			CMAKE_BUILD="crossbuilds/$$name" \
 			CMAKE_ROOT="../../"; \
+		mkdir -p "crossout/$$name"; \
+		cp "crossbuilds/$$name/yukkipaste" "crossout/$$name/"; \
 	done
 
 crossbuilds-clean:
 	$(RMRF) "crossbuilds" 
+	$(RMRF) "crossout" 
 
 clean: main-clean libs-clean crossbuilds-clean
 

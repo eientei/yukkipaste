@@ -1,7 +1,7 @@
 yukkipaste
 ==========
 
-Yukkiri pastu shite itte ne!
+Yukkuri pastu shite itte ne!
 
 A simple pasting utility for pocoo pastebin api.
 

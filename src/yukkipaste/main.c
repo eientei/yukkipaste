@@ -120,12 +120,12 @@ static char* json_extract_p(char **p, char *end, char *key, size_t len) {
   while (*p != end) {
     if (strncmp(*p,key,len) == 0) {
       *p += len;
-      if (*(*p+1) != '"') {
+      if (*((*p)+1) != '"') {
         beg = *p;
         (*p)++;
         while (**p != '\n' && **p != '}' && *p != end) {
           (*p)++;
-          if (**p == '"' && *(*p-1) != '\\') {
+          if (**p == '"' && *((*p)-1) != '\\') {
             break;
           }
         }
@@ -203,7 +203,6 @@ static int transfer_data(void) {
     fflush(stdout);
     write(STDOUT_FILENO,beg,p-beg+1);
     printf("\n");
-    fflush(stdout);
     return 1;
   }
 
@@ -219,7 +218,6 @@ static int transfer_data(void) {
   fflush(stdout);
   write(STDOUT_FILENO,beg+1,p-beg-1);
   printf("/\n");
-  fflush(stdout);
 
   return 0;
 }
@@ -284,26 +282,27 @@ static int escape_json_string(YUString *out, char *in, size_t len) {
     unichar = next_utf8_char((char*)p,(char*)end,&skiplen);
     if (skiplen == 0) {
       yu_string_sprintfa(out, "\\u%04x",*p++);
-    } else {
-      oldp = p;
-      p += skiplen;
-      switch (unichar) {
-        case  ' ': yu_string_append0(out,  " "); continue;
-        case '\b': yu_string_append0(out,"\\b"); continue;
-        case '\f': yu_string_append0(out,"\\f"); continue;
-        case '\n': yu_string_append0(out,"\\n"); continue;
-        case '\r': yu_string_append0(out,"\\r"); continue;
-        case '\t': yu_string_append0(out,"\\t"); continue;
-        case '\v': yu_string_append0(out,"\\v"); continue;
-        case  '"': yu_string_append0(out,"\\\"");continue;
-        case '\\': yu_string_append0(out,"\\\\");continue;
-      }
-      if (unichar < 32) {
-        yu_string_sprintfa(out, "\\u%04x",unichar);
-        continue;
-      }
-      yu_string_append(out,(char*)oldp,(size_t)skiplen);
+      continue;
     }
+
+    oldp = p;
+    p += skiplen;
+    switch (unichar) {
+      case  ' ': yu_string_append0(out,  " "); continue;
+      case '\b': yu_string_append0(out,"\\b"); continue;
+      case '\f': yu_string_append0(out,"\\f"); continue;
+      case '\n': yu_string_append0(out,"\\n"); continue;
+      case '\r': yu_string_append0(out,"\\r"); continue;
+      case '\t': yu_string_append0(out,"\\t"); continue;
+      case '\v': yu_string_append0(out,"\\v"); continue;
+      case  '"': yu_string_append0(out,"\\\"");continue;
+      case '\\': yu_string_append0(out,"\\\\");continue;
+    }
+    if (unichar < 32) {
+      yu_string_sprintfa(out, "\\u%04x",unichar);
+      continue;
+    }
+    yu_string_append(out,(char*)oldp,(size_t)skiplen);
   }
 
   return 0;

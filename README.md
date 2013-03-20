@@ -7,8 +7,8 @@ A simple pasting utility for pocoo pastebin api.
 
 To build it:
 
-make
+    make
 
 To use it:
 
-./build/yukkipaste -h
+    ./build/yukkipaste -h

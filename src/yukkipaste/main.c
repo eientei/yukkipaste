@@ -526,6 +526,7 @@ static int parse_options(int argc, char **argv) {
         break;
       case 'i':
         parent_id = atoi(optarg);
+        break;
       case 'p':
         is_paste_private = 1;
         break;

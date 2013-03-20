@@ -512,28 +512,14 @@ static int parse_options(int argc, char **argv) {
   opterr = 1;
   while ((opt = getopt(argc, argv, "hu:l:m:f:i:p")) != -1) {
     switch (opt) {
-      case 'u':
-        pastebin_uri = optarg;
-        break;
-      case 'l':
-        language_id = optarg;
-        break;
-      case 'm':
-        mime_type = optarg;
-        break;
-      case 'f':
-        remote_filename = optarg;
-        break;
-      case 'i':
-        parent_id = atoi(optarg);
-        break;
-      case 'p':
-        is_paste_private = 1;
-        break;
-      default:
-      case 'h':
-        print_help(argv[0]);
-        break;
+      case 'u': pastebin_uri = optarg;    break;
+      case 'l': language_id = optarg;     break;
+      case 'm': mime_type = optarg;       break;
+      case 'f': remote_filename = optarg; break;
+      case 'i': parent_id = atoi(optarg); break;
+      case 'p': is_paste_private = 1;     break;
+      default: /* FALLTHROUGH */
+      case 'h': print_help(argv[0]);      break;
     }
   }
 

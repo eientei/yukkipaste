@@ -4,6 +4,8 @@ RMRF = rm -rf
 MKDIRP = mkdir -p
 CD = cd
 CMAKE = cmake
+CMAKE_OPTS = 
+CMAKE_ROOT = "../"
 
 #### PARAMETERS ####
 
@@ -12,9 +14,24 @@ PROJECT_LIBDIR = libs
 
 #### TARGETS ####
 
+.PHONY: clean crossbuilds
+
 all: libs make
 
-clean: main-clean libs-clean
+crossbuilds:
+	for chen in cmake/Toolchains/*; do \
+		name="$$(echo $$chen | sed 's|.*/\([^-]*\)-.*|\1|')"; \
+		mkdir -p "crossbuilds/$$name"; \
+		make -C . all \
+			CMAKE_OPTS=-DCMAKE_TOOLCHAIN_FILE="$$(pwd)/$$chen" \
+			CMAKE_BUILD="crossbuilds/$$name" \
+			CMAKE_ROOT="../../"; \
+	done
+
+crossbuilds-clean:
+	$(RMRF) "crossbuilds" 
+
+clean: main-clean libs-clean crossbuilds-clean
 
 make: main
 
@@ -28,7 +45,7 @@ main: main-configure main-make
 
 main-configure:
 	$(MKDIRP) ${CMAKE_BUILD}
-	$(CD) ${CMAKE_BUILD} && $(CMAKE) ../
+	$(CD) ${CMAKE_BUILD} && $(CMAKE) ${CMAKE_OPTS} ${CMAKE_ROOT}
 
 main-make:
 	$(CD) ${CMAKE_BUILD} && $(MAKE)

@@ -1,0 +1,12 @@
+#ifndef __YU_CONFIG_H__
+#define __YU_CONFIG_H__
+
+#cmakedefine HAVE_LIBMAGIC
+
+#ifdef HAVE_LIBMAGIC
+#define HAVE_LIBMAGIC_TEST 1
+#else
+#define HAVE_LIBMAGIC_TEST 0
+#endif
+
+#endif /* __YU_CONFIG_H__ */

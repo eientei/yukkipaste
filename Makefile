@@ -19,7 +19,7 @@ PROJECT_LIBDIR = libs
 all: libs make
 
 crossbuilds:
-	for chen in cmake/Toolchains/*; do \
+	for chen in cmake/Cross/*; do \
 		name="$$(echo $$chen | sed 's|.*/\([^-]*\)-.*|\1|')"; \
 		mkdir -p "crossbuilds/$$name"; \
 		make -C . all \

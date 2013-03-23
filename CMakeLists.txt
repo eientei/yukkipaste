@@ -34,6 +34,7 @@ add_library(yutils SHARED
   src/yutils/yusoundex.c
   src/yutils/yumultipart.c
   src/yutils/yurandom.c
+  src/yutils/yusectconf.c
   )
 
 install_targets(/lib yutils)
@@ -87,3 +88,5 @@ configure_file(
 install_files(/lib/pkgconfig .pc ${PROJECT_BINARY_DIR}/yukkipaste.pc)
 install_files(/include/yukkipaste/yukkipaste-api .h ${headers-api})
 install_files(/include/yukkipaste/yutils         .h ${headers-utils})
+install(FILES ${CMAKE_SOURCE_DIR}/src/yukkipaste/config.example
+        DESTINATION ~/.config/yukkipaste)

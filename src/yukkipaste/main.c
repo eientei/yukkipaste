@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <dlfcn.h>
+#include <glob.h>
 
 #include "config.h"
 
@@ -28,6 +29,7 @@
 #include "yutils/yuoptions.h"
 #include "yutils/yumacro.h"
 #include "yutils/yusoundex.h"
+#include "yutils/yusectconf.h"
 #include "yukkipaste-api/yukkipaste-module.h"
 
 #include "moduleinfo.h"
@@ -35,6 +37,8 @@
 #ifndef BUFSIZ
 #define BUFSIZ 4096
 #endif
+
+#define USER_CONF_FILE "~/.config/yukkipaste/config"
 
 static char* headers =
  "POST %s%s HTTP/1.1\r\n"
@@ -49,25 +53,17 @@ static char                   buf[BUFSIZ];
 static YULog                 *log_domain = 0;
 static YUArray               *modules = 0;
 static YUPointerArray        *module_paths = 0;
+static YUSectConf            *userconfig = 0;
 static char                 **args = 0;
-static int                    print_help = 0;
-static int                    list_modules = 0;
 static int                    verbosity_flag = 0;
-static char                  *pastebin_uri = 0;
-static char                  *language_name = 0;
+
 static char                  *remote_filename = 0;
-static char                  *parent_id_name = "";
-static int                    is_paste_private = 0;
 static char                  *mime_type = 0;
 static char                  *pastebin_host = 0;
 static char                  *pastebin_port = 0;
 static char                  *pastebin_root = 0;
 static int                    source_fd = -1;
-static char                  *source_name = 0;
-static YUString              *file_data = 0;
 static char                  *module_to_use = 0;
-static char                  *author_name = "";
-static char                  *mime = 0;
 static YukkipasteModuleInfo   active_module;
 static YUString              *transmit_data = 0;
 static YUString              *post_path = 0;
@@ -75,8 +71,22 @@ static int                    sock_fd = 0;
 static YUString              *reply = 0;
 static YUString              *request_headers = 0;
 static YUString              *content_type = 0;
+
+/* PTR parameters */
+static char                  *language_name = 0;
+static char                  *source_name = 0;
+static char                  *pastebin_uri = 0;
+static char                  *mime = 0;
+static char                  *parent_id_name = "";
+static char                  *author_name = "";
+static YUString              *file_data = 0;
+static int                    is_paste_private = 0;
 static int                    run_code = 0;
+
+/* Logical flow flags */
 static int                    list_languages = 0;
+static int                    list_modules = 0;
+static int                    print_help = 0;
 
 /* Module process reply output arguemnts */
 static YUString              *mod_proc_reply_out = 0;
@@ -99,6 +109,7 @@ static int transfer_data(void);
 static int mod_process_reply(void);
 static int parse_language(void);
 static int action_list_languages(void);
+static int parse_userconfig(void);
 
 static YUOption options[] =
 {
@@ -112,7 +123,7 @@ static YUOption options[] =
     "Lists available modules", 0 },
 
   { "verbose", 'v', OPTION_ARG_NONE, &verbosity_flag,
-    "Increases verbosity level. 3 max.", 0 },
+    "Increases verbosity level.", 0 },
 
   { "author", 'a', OPTION_ARG_STRING, &author_name,
     "Your name", "STRING" },
@@ -155,6 +166,10 @@ int main(int argc, char ** argv) {
   signal(SIGSEGV, signal_cleanup);
 
   if (init() != 0) {
+    return 1;
+  }
+
+  if (parse_userconfig() != 0) {
     return 1;
   }
 
@@ -223,7 +238,114 @@ int main(int argc, char ** argv) {
   return 0;
 }
 
-     static int action_list_languages(void) {
+static int parse_userconfig(void) {
+  YUString        *contents;
+  YUString        *err;
+  int              fd;
+  int              count;
+  int              ret = 0;
+  int              itmp;
+  char            *p;
+  char            *beg;
+  YUSectConfEntry  entry;
+  glob_t           globbuf;
+
+  glob(USER_CONF_FILE, GLOB_TILDE, 0, &globbuf);
+
+  if (globbuf.gl_pathc == 0) {
+    log_info(log_domain, "Could not glob pattern: %s\n", USER_CONF_FILE);
+  }
+
+  contents    = yu_string_new();
+  err         = yu_string_new();
+
+  fd = open(globbuf.gl_pathv[0],O_RDONLY);
+  
+  if (fd == -1) {
+    log_info(log_domain, "%s: %s\n", strerror(errno), USER_CONF_FILE);
+    goto parse_userconfig_free_and_return;
+  }
+  
+  while ((count = read(fd, buf, sizeof(buf))) > 0) {
+    yu_string_append(contents, buf, count);
+  }
+
+  if (count < 0) {
+    log_info(log_domain, "%s: %s\n", strerror(errno), source_name);
+    goto parse_userconfig_free_and_return;
+  }
+
+  yu_sect_conf_parse(userconfig, contents->str, err);
+
+  if (err->len > 0) {
+    log_error(log_domain, "Error parsing config file %s:\n%s\n",
+              globbuf.gl_pathv[0], err->str);
+    ret = 1;
+    goto parse_userconfig_free_and_return;
+  }
+
+  if (module_to_use == 0) {
+    entry = yu_sect_conf_get(userconfig,"global","module");
+
+    module_to_use = entry.value;
+  }
+
+  entry = yu_sect_conf_get(userconfig,"global","verbosity");
+
+  if (entry.value != 0) {
+    itmp = atoi(entry.value);
+    if (itmp >= 0 && itmp <= 6) {
+      log_domain->current_level = 0;
+      if (itmp > 0) log_domain->current_level |= LOG_ERROR;
+      if (itmp > 1) log_domain->current_level |= LOG_WARN;
+      if (itmp > 2) log_domain->current_level |= LOG_MSG;
+      if (itmp > 3) log_domain->current_level |= LOG_INFO;
+      if (itmp > 4) log_domain->current_level |= LOG_DEBUG;
+      if (itmp > 5) log_domain->current_level |= LOG_TRACE;
+    } else {
+      ret = 1;
+      log_error(log_domain, "Error parsing config file %s:\nline %d - %s\n",
+                globbuf.gl_pathv[0], entry.line,
+                "Value of verbosity level is not in 0..6 range");
+      goto parse_userconfig_free_and_return;
+    }
+  }
+
+  entry = yu_sect_conf_get(userconfig,"global","modules_dirs");
+
+  if (entry.value != 0) {
+    for (p = entry.value; *p != 0; p++) {
+      beg = p;
+      while (*p != 0 && *p != ':') p++;
+      if (p != beg) {
+        yu_pointer_array_append(module_paths,strndup(beg,p-beg));
+      }
+      if (*p == 0) break;
+    }
+  }
+
+#define GLOBAL_STR_USERCONFIG_PROPERTY(N,F) \
+  entry = yu_sect_conf_get(userconfig,"global",#N); \
+  if (entry.value != 0) { F = entry.value; }
+
+  GLOBAL_STR_USERCONFIG_PROPERTY(author,author_name);
+  GLOBAL_STR_USERCONFIG_PROPERTY(uri,pastebin_uri);
+  GLOBAL_STR_USERCONFIG_PROPERTY(lang,language_name);
+
+  entry = yu_sect_conf_get(userconfig, "global", "private");
+  if (entry.value != 0) { is_paste_private = atoi(entry.value); }
+  
+  entry = yu_sect_conf_get(userconfig, "global", "run");
+  if (entry.value != 0) { run_code = atoi(entry.value); }
+
+parse_userconfig_free_and_return:
+  yu_string_free(err);
+  globfree(&globbuf);
+  yu_string_free(contents);
+  return ret;
+}
+
+static int action_list_languages(void) {
   char **l;
 
   for (l = active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
@@ -794,10 +916,15 @@ static int init(void) {
                                stderr);
 
   module_paths = yu_pointer_array_new(1);
-  yu_pointer_array_append(module_paths, "/usr/share/yukkipaste/modules");
-  yu_pointer_array_append(module_paths, "/usr/local/share/yukkipaste/modules");
-  yu_pointer_array_append(module_paths, "~/.config/yukkipaste/modules");
+  yu_pointer_array_append(module_paths, 
+      strdup("/usr/share/yukkipaste/modules"));
+  yu_pointer_array_append(module_paths, 
+      strdup("/usr/local/share/yukkipaste/modules"));
+  yu_pointer_array_append(module_paths, 
+      strdup("~/.config/yukkipaste/modules"));
  
+  userconfig = yu_sect_conf_new();
+
   modules = yu_array_new(sizeof(YukkipasteModuleInfo));
   
   file_data          = yu_string_new();
@@ -826,6 +953,9 @@ static void cleanup(void) {
     log_domain = 0;
   }
   if (module_paths != 0) {
+    for (i = 0; i < module_paths->len; i++) {
+      free(yu_pointer_array_index(module_paths,i));
+    }
     yu_pointer_array_free(module_paths);
     module_paths = 0;
   }
@@ -899,6 +1029,11 @@ static void cleanup(void) {
   if (mod_proc_reply_out != 0) {
     yu_string_free(mod_proc_reply_out);
     mod_proc_reply_out = 0;
+  }
+
+  if (userconfig != 0) {
+    yu_sect_conf_free(userconfig);
+    userconfig = 0;
   }
 }
 

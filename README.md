@@ -10,6 +10,7 @@ To build it:
     make
 
 To install it:
+   
     sudo make instal # optional: DESTDIR=/usr/local
 
 To use it:

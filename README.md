@@ -9,10 +9,34 @@ To build it:
 
     make
 
+To install it:
+    sudo make instal # optional: DESTDIR=/usr/local
+
 To use it:
 
-    ./build/yukkipaste -h
+    yukkipaste --help
 
 Build for x86_64 and i686 GNU/Linux are available at
 
     http://yukkuri.eientei.org/yukkipaste/crossout/
+
+
+Sample --help output:
+
+    ./build/yukkipaste [OPTIONS...]
+
+        --help,           -h            Prints help message
+        --modules-dir,    -d DIR        Appends module path. Stackable.
+        --list-modules                  Lists available modules
+        --verbose,        -v            Increases verbosity level. 3 max.
+        --author,         -a STRING     Your name
+        --uri,            -u URI        Pastebin URI
+        --language,       -l LANG       Paste language
+        --list-languages                Lists avialable languages for selected module
+        --remote-name,    -n NAME       Remote file name
+        --mime-type          MIME       Paste mime type
+        --module,         -m MODULE     Selects module to use
+        --parent-id,      -p ID         Parent paste id
+        --secret,         -s            Marks a secret (private) paste
+        --run,            -r            Marks paste as runnable on pastebin side
+

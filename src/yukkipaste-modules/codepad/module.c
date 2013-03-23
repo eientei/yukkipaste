@@ -62,12 +62,9 @@ int FORM_REQUEST_FUNC(YUString    *post,
 }
 
 
-int PROCESS_REPLY_FUNC(char *reply) {
+int PROCESS_REPLY_FUNC(char *reply, YUString *uri) {
   char     *p;
   char     *beg;
-  YUString *uri;
-
-  uri = yu_string_new();
   
   for (p = reply; *p != 0; p++) {
     if (strncmp("<a href=\"",p,9) == 0) {
@@ -77,10 +74,6 @@ int PROCESS_REPLY_FUNC(char *reply) {
       yu_string_append(uri,beg,p-beg);
     }
   }
-
-  log_msg(PTR_LOG_DOMAIN, "%s\n", uri->str);
-
-  yu_string_free(uri);
 
   return 0;
 }

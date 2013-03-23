@@ -4,9 +4,9 @@ RMRF = rm -rf
 MKDIRP = mkdir -p
 CD = cd
 CMAKE = cmake
-CMAKE_OPTS = 
 CMAKE_ROOT = "../"
-DESTDIR = /usr 
+DESTDIR = /usr
+CMAKE_OPTS =
 
 #### PARAMETERS ####
 
@@ -40,7 +40,7 @@ clean: main-clean libs-clean crossbuilds-clean
 make: main
 
 install: all
-	$(CD) ${CMAKE_BUILD} && $(MAKE) install DESTDIR=${DESTDIR}
+	$(CD) ${CMAKE_BUILD} && $(MAKE) install DESTDIR=
 
 libs:
 
@@ -52,7 +52,8 @@ main: main-configure main-make
 
 main-configure:
 	$(MKDIRP) ${CMAKE_BUILD}
-	$(CD) ${CMAKE_BUILD} && $(CMAKE) ${CMAKE_OPTS} ${CMAKE_ROOT}
+	$(CD) ${CMAKE_BUILD} && \
+		$(CMAKE) ${CMAKE_OPTS} -DCMAKE_INSTALL_PREFIX=${DESTDIR}  ${CMAKE_ROOT}
 
 main-make:
 	$(CD) ${CMAKE_BUILD} && $(MAKE)

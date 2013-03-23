@@ -357,13 +357,11 @@ int FORM_REQUEST_FUNC(YUString    *post,
 }
 
 
-int PROCESS_REPLY_FUNC(char     *reply) {
+int PROCESS_REPLY_FUNC(char     *reply, YUString *uri) {
   int ret = 0;
   YUString *err = 0;
-  YUString *uri = 0;
 
   err = yu_string_new();
-  uri = yu_string_new();
   yu_string_append0(uri,PTR_URI);
   
   if (uri->str[uri->len-1] != '/') {
@@ -386,11 +384,8 @@ int PROCESS_REPLY_FUNC(char     *reply) {
     goto process_reply_func_free_and_return;
   }
 
-  log_msg(PTR_LOG_DOMAIN, "%s\n", uri->str);
-
 process_reply_func_free_and_return:
   yu_string_free(err);
-  yu_string_free(uri);
   return ret;
 }
 

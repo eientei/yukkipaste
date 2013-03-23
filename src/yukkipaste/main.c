@@ -78,6 +78,9 @@ static YUString              *content_type = 0;
 static int                    run_code = 0;
 static int                    list_languages = 0;
 
+/* Module process reply output arguemnts */
+static YUString              *mod_proc_reply_out = 0;
+
 static void signal_cleanup(int sig);
 static void cleanup(void);
 static int init(void);
@@ -220,7 +223,7 @@ int main(int argc, char ** argv) {
   return 0;
 }
 
-static int action_list_languages(void) {
+     static int action_list_languages(void) {
   char **l;
 
   for (l = active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
@@ -281,7 +284,10 @@ parse_language_free_and_return:
 }
 
 static int mod_process_reply(void) {
-  return active_module.PROCESS_REPLY_FUNC(reply->str);
+  int ret;
+  ret = active_module.PROCESS_REPLY_FUNC(reply->str, mod_proc_reply_out);
+  log_msg(log_domain, "%s\n", mod_proc_reply_out->str);
+  return ret;
 }
 
 static int transfer_data(void) {
@@ -794,12 +800,13 @@ static int init(void) {
  
   modules = yu_array_new(sizeof(YukkipasteModuleInfo));
   
-  file_data       = yu_string_new();
-  transmit_data   = yu_string_new();
-  post_path       = yu_string_new();
-  reply           = yu_string_new();
-  request_headers = yu_string_new();
-  content_type    = yu_string_new();
+  file_data          = yu_string_new();
+  transmit_data      = yu_string_new();
+  post_path          = yu_string_new();
+  reply              = yu_string_new();
+  request_headers    = yu_string_new();
+  content_type       = yu_string_new();
+  mod_proc_reply_out = yu_string_new();
 
   memset(&active_module,0,sizeof(YukkipasteModuleInfo));
   return 0;
@@ -887,6 +894,11 @@ static void cleanup(void) {
   if (content_type != 0) {
     yu_string_free(content_type);
     content_type = 0;
+  }
+
+  if (mod_proc_reply_out != 0) {
+    yu_string_free(mod_proc_reply_out);
+    mod_proc_reply_out = 0;
   }
 }
 

@@ -68,22 +68,19 @@ int FORM_REQUEST_FUNC(YUString *,
                       YUString *);
 
 /* type safety enforcer */
-int PROCESS_REPLY_FUNC(char *);
-
-/* type safety enforcer */
-int POPULATE_LANGS_FUNC(YUPointerArray *);
-
-
+int PROCESS_REPLY_FUNC(char *,
+                       YUString *);
 
 
 typedef int (*init_module_t)(void);
 
 typedef int (*deinit_module_t)(void);
 
-typedef int (*form_request_t)(YUString *,          /* POST request        */
-                              YUString *,          /* Content-Type        */
-                              YUString *);         /* Paste data section  */
+typedef int (*form_request_t)(YUString *,          /* POST request       [OUT] */
+                              YUString *,          /* Content-Type       [OUT] */
+                              YUString *);         /* Paste data section [OUT] */
 
-typedef int (*process_reply_t)(char *);            /* Received reply      */
+typedef int (*process_reply_t)(char *,             /* Received reply     [ IN] */
+                               YUString *);        /* Resulting URI      [OUT] */
 
 #endif /* __YU_YUKKIPASTE_MODULE__ */

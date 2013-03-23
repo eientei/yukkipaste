@@ -21,10 +21,9 @@ include_directories(
   src
   )
 
-set(CMAKE_INSTALL_PREFIX /)
 set(YUKKIPASTE_MODULES_DIR /share/yukkipaste/modules)
 
-add_library(yutils STATIC
+add_library(yutils SHARED
   src/yutils/yustring.c
   src/yutils/yuutf.c
   src/yutils/yulog.c
@@ -37,10 +36,7 @@ add_library(yutils STATIC
   src/yutils/yurandom.c
   )
 
-set_target_properties(yutils PROPERTIES 
-  COMPILE_FLAGS -fPIC
-  )
-
+install_targets(/lib yutils)
 
 add_executable(${PROJECT_NAME}
   src/yukkipaste/main.c
@@ -74,3 +70,20 @@ target_link_libraries(codepad
   )
 
 install_targets(${YUKKIPASTE_MODULES_DIR} codepad)
+
+file(GLOB headers-api
+  "${CMAKE_SOURCE_DIR}/src/yukkipaste-api/*.h"
+  )
+file(GLOB headers-utils
+  "${CMAKE_SOURCE_DIR}/src/yutils/*.h"
+  )
+
+configure_file(
+  ${CMAKE_SOURCE_DIR}/src/yukkipaste/yukkipaste.pc
+  ${PROJECT_BINARY_DIR}/yukkipaste.pc
+  @ONLY
+  )
+
+install_files(/lib/pkgconfig .pc ${PROJECT_BINARY_DIR}/yukkipaste.pc)
+install_files(/include/yukkipaste/yukkipaste-api .h ${headers-api})
+install_files(/include/yukkipaste/yutils         .h ${headers-utils})

@@ -6,7 +6,7 @@ CD = cd
 CMAKE = cmake
 CMAKE_OPTS = 
 CMAKE_ROOT = "../"
-DESTDIR = 
+DESTDIR = /usr 
 
 #### PARAMETERS ####
 

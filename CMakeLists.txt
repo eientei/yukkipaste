@@ -21,7 +21,7 @@ include_directories(
   src
   )
 
-set(CMAKE_INSTALL_PREFIX /usr)
+set(CMAKE_INSTALL_PREFIX /)
 set(YUKKIPASTE_MODULES_DIR /share/yukkipaste/modules)
 
 add_library(yutils STATIC

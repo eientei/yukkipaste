@@ -12,12 +12,17 @@ add_definitions(-pedantic -Wall -g)
 find_package(LibMagic)
 
 configure_file ("${PROJECT_SOURCE_DIR}/src/yukkipaste/config.h.in"
-                "${PROJECT_BINARY_DIR}/config.h" )
+                "${PROJECT_BINARY_DIR}/config.h" 
+                )
+
 
 include_directories(
   ${PROJECT_BINARY_DIR}
   src
   )
+
+set(CMAKE_INSTALL_PREFIX /usr)
+set(YUKKIPASTE_MODULES_DIR /share/yukkipaste/modules)
 
 add_library(yutils STATIC
   src/yutils/yustring.c
@@ -27,6 +32,9 @@ add_library(yutils STATIC
   src/yutils/yuarray.c
   src/yutils/yuoptions.c
   src/yutils/yujson.c
+  src/yutils/yusoundex.c
+  src/yutils/yumultipart.c
+  src/yutils/yurandom.c
   )
 
 set_target_properties(yutils PROPERTIES 
@@ -44,6 +52,7 @@ target_link_libraries(${PROJECT_NAME}
   ${LIBMAGIC_LIBRARIES}
   )
 
+install_targets(/bin ${PROJECT_NAME})
 
 
 add_library(pocoo MODULE
@@ -53,3 +62,15 @@ add_library(pocoo MODULE
 target_link_libraries(pocoo
   yutils
   )
+
+install_targets(${YUKKIPASTE_MODULES_DIR} pocoo)
+
+add_library(codepad MODULE
+  src/yukkipaste-modules/codepad/module.c
+  )
+
+target_link_libraries(codepad
+  yutils
+  )
+
+install_targets(${YUKKIPASTE_MODULES_DIR} codepad)

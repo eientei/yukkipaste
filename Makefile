@@ -6,6 +6,7 @@ CD = cd
 CMAKE = cmake
 CMAKE_OPTS = 
 CMAKE_ROOT = "../"
+DESTDIR = 
 
 #### PARAMETERS ####
 
@@ -37,6 +38,9 @@ crossbuilds-clean:
 clean: main-clean libs-clean crossbuilds-clean
 
 make: main
+
+install: all
+	$(CD) ${CMAKE_BUILD} && $(MAKE) install DESTDIR=${DESTDIR}
 
 libs:
 

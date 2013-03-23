@@ -27,6 +27,7 @@
 #include "yutils/yupointerarray.h"
 #include "yutils/yuoptions.h"
 #include "yutils/yumacro.h"
+#include "yutils/yusoundex.h"
 #include "yukkipaste-api/yukkipaste-module.h"
 
 #include "moduleinfo.h"
@@ -53,7 +54,7 @@ static int                    print_help = 0;
 static int                    list_modules = 0;
 static int                    verbosity_flag = 0;
 static char                  *pastebin_uri = 0;
-static char                  *language_name = "text";
+static char                  *language_name = 0;
 static char                  *remote_filename = 0;
 static char                  *parent_id_name = "";
 static int                    is_paste_private = 0;
@@ -70,12 +71,12 @@ static char                  *mime = 0;
 static YukkipasteModuleInfo   active_module;
 static YUString              *transmit_data = 0;
 static YUString              *post_path = 0;
-static RequestType            request_type = MULTIPART;
 static int                    sock_fd = 0;
 static YUString              *reply = 0;
 static YUString              *request_headers = 0;
-static char                  *content_type = 0;
-static YUString              *request = 0;
+static YUString              *content_type = 0;
+static int                    run_code = 0;
+static int                    list_languages = 0;
 
 static void signal_cleanup(int sig);
 static void cleanup(void);
@@ -93,6 +94,8 @@ static int open_socket(void);
 static int form_headers(void);
 static int transfer_data(void);
 static int mod_process_reply(void);
+static int parse_language(void);
+static int action_list_languages(void);
 
 static YUOption options[] =
 {
@@ -117,6 +120,9 @@ static YUOption options[] =
   { "language", 'l', OPTION_ARG_STRING, &language_name,
     "Paste language", "LANG" },
 
+  { "list-languages", 0, OPTION_ARG_NONE, &list_languages,
+    "Lists avialable languages for selected module", 0 },
+
   { "remote-name", 'n', OPTION_ARG_STRING, &remote_filename,
     "Remote file name", "NAME" },
 
@@ -131,6 +137,9 @@ static YUOption options[] =
 
   { "secret", 's', OPTION_ARG_NONE, &is_paste_private,
     "Marks a secret (private) paste", 0, },
+  
+  { "run", 'r', OPTION_ARG_NONE, &run_code,
+    "Marks paste as runnable on pastebin side", 0, },
 
   { 0, 0, OPTION_ARG_LEFTOVERS, &args, 0, 0},
   
@@ -163,7 +172,16 @@ int main(int argc, char ** argv) {
     return 1;
   }
 
+  if (list_languages) {
+    action_list_languages();
+    return 0;
+  }
+
   if (parse_uri() != 0) {
+    return 1;
+  }
+
+  if (parse_language() != 0) {
     return 1;
   }
 
@@ -202,6 +220,66 @@ int main(int argc, char ** argv) {
   return 0;
 }
 
+static int action_list_languages(void) {
+  char **l;
+
+  for (l = active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
+    log_msg(log_domain, "    - %s\n",*l);
+  }
+  return 0;
+}
+
+static int parse_language(void) {
+  char             soundex[5];
+  YUPointerArray  *variants;
+  char           **l;
+  int              ret = 0;
+  int              i;
+
+  if (language_name == 0) {
+    language_name = active_module.PASTEBIN_LANG;
+  }
+
+  for (l = active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
+    if (strcasecmp(*l,language_name) == 0) {
+      language_name = *l;
+      return 0;
+    }
+  }
+
+  variants = yu_pointer_array_new(0);
+  strncpy(soundex,yu_soundex(language_name),5);
+  
+  for (l = active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
+    if (strcmp(yu_soundex(*l),soundex) == 0) {
+      yu_pointer_array_append(variants,*l);
+    }
+  }
+
+  if (variants->len == 0) {
+    ret = 1;
+    log_error(log_domain, "Language \"%s\" is not available from module \"%s\"\n",
+                          language_name, active_module.MODULE_NAME);
+    goto parse_language_free_and_return;
+  }
+
+  if (variants->len == 1) {
+    language_name = yu_pointer_array_index(variants,0);
+    goto parse_language_free_and_return;
+  }
+
+  log_msg(log_domain, "Ambigous language variants: \n");
+  for (i = 0; i < variants->len; i++) {
+    log_msg(log_domain, "    - %s\n", yu_pointer_array_index(variants,i));
+  }
+
+  ret = 1;
+
+parse_language_free_and_return:
+  yu_pointer_array_free(variants);
+  return ret;
+}
+
 static int mod_process_reply(void) {
   return active_module.PROCESS_REPLY_FUNC(reply->str);
 }
@@ -215,6 +293,8 @@ static int transfer_data(void) {
   int          length = 0;
   YUString    *tmp = 0;
 
+  log_trace(log_domain, "%s\n", request_headers->str);
+
   while ((count = send(sock_fd,
                        request_headers->str+count,
                        request_headers->len-count,0)) > 0);
@@ -225,9 +305,10 @@ static int transfer_data(void) {
   
   count = 0;
   
+  log_trace(log_domain, "%s\n", transmit_data->str);
   while ((count = send(sock_fd,
-                       request->str+count,
-                       request->len-count,0)) > 0);
+                       transmit_data->str+count,
+                       transmit_data->len-count,0)) > 0);
     
   if (count < 0) {
     log_error(log_domain,"send: %s\n", strerror(errno));
@@ -257,6 +338,7 @@ static int transfer_data(void) {
       p++;
     }
   }
+  log_trace(log_domain, "%s\n", tmp->str);
 
   yu_string_append(reply,reply_begin,length);
 
@@ -265,13 +347,15 @@ static int transfer_data(void) {
 }
 
 static int form_headers(void) {
+  
+  
   yu_string_sprintfa(request_headers,headers,
                      pastebin_root,
                      post_path->str,
                      pastebin_host,
                      pastebin_port,
-                     content_type,
-                     request->len);
+                     content_type->str,
+                     transmit_data->len);
 
   return 0;
 }
@@ -311,21 +395,10 @@ open_socket_free_and_return:
 }
 
 static int mod_form_request(void) {
-  int ret;
-  ret = active_module.FORM_REQUEST_FUNC(post_path,
-                                        transmit_data,
-                                       &request_type);
+  return active_module.FORM_REQUEST_FUNC(post_path,
+                                         content_type,
+                                         transmit_data);
 
-  switch (request_type) {
-    case MULTIPART:
-      break;
-    case HANDCRAFTED:
-      content_type = "application/json";
-      yu_string_append(request, transmit_data->str, transmit_data->len);
-      break;
-  }
-
-  return ret;
 }
 
 static int mod_init(void) {
@@ -337,6 +410,7 @@ static int mod_init(void) {
   *active_module.PTR_AUTHOR     = author_name;
   *active_module.PTR_BODY       = file_data->str;
   *active_module.PTR_PRIVATE    = is_paste_private;
+  *active_module.PTR_RUN        = run_code;
   *active_module.PTR_LOG_DOMAIN = log_domain;
  
   return active_module.INIT_MODULE_FUNC();
@@ -356,7 +430,7 @@ static int select_active_module(void) {
   }
 
   for (i = 0; i < modules->len; i++) {
-    m = yu_array_index(modules,YukkipasteModuleInfo,0);
+    m = yu_array_index(modules,YukkipasteModuleInfo,i);
     if (strcmp(m.MODULE_NAME, module_to_use) == 0) {
       active_module = m;
       return 0;
@@ -630,6 +704,8 @@ static int scan_module_dirs(void) {
       LOAD_PROP_OR_FAIL(MODULE_AUTHOR, char*);
       LOAD_PROP_OR_FAIL(MODULE_VERSION, char*);
       LOAD_PROP_OR_FAIL(PASTEBIN_URI, char*);
+      LOAD_PROP_OR_FAIL(PASTEBIN_LANG, char*);
+      LOAD_PPTR_OR_FAIL(PASTEBIN_AVAIL_LANGS, char**);
 
       LOAD_FUNC_OR_FAIL(FORM_REQUEST_FUNC);
       LOAD_FUNC_OR_FAIL(PROCESS_REPLY_FUNC);
@@ -644,6 +720,7 @@ static int scan_module_dirs(void) {
       LOAD_PPTR_OR_FAIL(PTR_AUTHOR, char**);
       LOAD_PPTR_OR_FAIL(PTR_BODY, char**);
       LOAD_PPTR_OR_FAIL(PTR_PRIVATE, int*);
+      LOAD_PPTR_OR_FAIL(PTR_RUN, int*);
       LOAD_PPTR_OR_FAIL(PTR_LOG_DOMAIN, YULog**);
         
       yu_array_append(modules,&module_info);
@@ -722,7 +799,7 @@ static int init(void) {
   post_path       = yu_string_new();
   reply           = yu_string_new();
   request_headers = yu_string_new();
-  request         = yu_string_new();
+  content_type    = yu_string_new();
 
   memset(&active_module,0,sizeof(YukkipasteModuleInfo));
   return 0;
@@ -807,9 +884,9 @@ static void cleanup(void) {
     request_headers = 0;
   }
 
-  if (request != 0) {
-    yu_string_free(request);
-    request = 0;
+  if (content_type != 0) {
+    yu_string_free(content_type);
+    content_type = 0;
   }
 }
 

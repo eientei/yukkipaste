@@ -15,6 +15,10 @@ YUString * yu_string_new() {
   return str;
 }
 
+void yu_string_clear(YUString *str) {
+  str->len = 0;
+}
+
 void yu_string_free(YUString *str) {
   free(str->str);
   free(str);

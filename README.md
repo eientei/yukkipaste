@@ -41,3 +41,10 @@ Sample --help output:
         --secret,         -s            Marks a secret (private) paste
         --run,            -r            Marks paste as runnable on pastebin side
 
+
+
+Module compilation guide:
+
+Assuming you have installed yukkipaste at DESTDIR=/usr,
+
+    gcc `PKG_CONFIG_PATH=/usr/lib/pkgconfig/ pkg-config yukkipaste --cflags --libs` -shared -fPIC module.c

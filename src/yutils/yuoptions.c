@@ -55,7 +55,7 @@ static int dispatch_short(YUArray  *options,
                *(char**)opt.arg_data = next;
             } else {
               yu_pointer_array_append(*(YUPointerArray**)opt.arg_data,
-                                      strdup(next));
+                                      (next));
             }
             ret = 1;
           } else {
@@ -131,7 +131,7 @@ static int dispatch_long(YUArray  *options,
               *(char**)opt.arg_data = opt_arg+len+1;
             } else {
               yu_pointer_array_append(*(YUPointerArray**)opt.arg_data,
-                                      strdup(opt_arg+len+1));
+                                      (opt_arg+len+1));
             }
             ret = 2;
           } else if (next != 0) {
@@ -139,7 +139,7 @@ static int dispatch_long(YUArray  *options,
               *(char**)opt.arg_data = next;
             } else {
               yu_pointer_array_append(*(YUPointerArray**)opt.arg_data,
-                                      strdup(next));
+                                      (next));
             }
             ret = 1;
           } else {

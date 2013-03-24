@@ -2,15 +2,13 @@
 
 #include <string.h>
 
-YUPointerArray *yu_pointer_array_new(int null_terminate) {
+YUPointerArray *yu_pointer_array_new() {
   YUPointerArray *arr;
   arr = calloc(1,sizeof(YUPointerArray));
-  arr->null_terminate = null_terminate;
  
-  if (null_terminate) {
-    arr->data = malloc(sizeof(void*));
-    arr->allocated = sizeof(void*);
-  }
+  arr->data = malloc(sizeof(void*));
+  *arr->data = 0;
+  arr->allocated = sizeof(void*);
   
   return arr;
 }

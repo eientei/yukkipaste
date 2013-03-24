@@ -23,7 +23,8 @@ typedef struct {
 
 YUSectConf      *yu_sect_conf_new();
 void             yu_sect_conf_free(YUSectConf *conf);
-void             yu_sect_conf_parse(YUSectConf *conf, char *data, YUString *err);
+void             yu_sect_conf_parse(YUSectConf *conf, char *filepath, 
+                                    YUString *err);
 YUSectConfEntry  yu_sect_conf_get(YUSectConf *conf, char *section, char *key);
 
 #endif /* __YU_SECTCONF__ */

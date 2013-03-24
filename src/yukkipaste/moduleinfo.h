@@ -23,7 +23,7 @@ typedef struct {
   char           **PTR_MIME;
   char           **PTR_PARENT;
   char           **PTR_AUTHOR;
-  char           **PTR_BODY;
+  char           **PTR_DATA;
   int             *PTR_PRIVATE;
   int             *PTR_RUN;
   YULog          **PTR_LOG_DOMAIN;

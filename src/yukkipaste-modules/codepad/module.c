@@ -48,7 +48,7 @@ int FORM_REQUEST_FUNC(YUString    *post,
   yu_multipart_append0(multipart, "submit", "Submit");
   yu_multipart_append0(multipart, "client", "yukkipaste");
   yu_multipart_append0(multipart, "lang", PTR_LANG);
-  yu_multipart_append0(multipart, "code", PTR_BODY);
+  yu_multipart_append0(multipart, "code", PTR_DATA);
   yu_multipart_append0(multipart, "private", PTR_PRIVATE ? "True" : "False");
   yu_multipart_append0(multipart, "run", PTR_RUN ? "True" : "False");
   yu_multipart_generate(multipart,data);

@@ -1,7 +1,12 @@
 #include "yusectconf.h"
 
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
+#include <errno.h>
 
 YUSectConf *yu_sect_conf_new() {
   YUSectConf *conf;
@@ -26,7 +31,9 @@ void yu_sect_conf_free(YUSectConf *conf) {
       free(entry.key);
       free(entry.value);
     }
-    free(section.name);
+    if (section.name != 0) {
+      free(section.name);
+    }
     yu_array_free(section.entries);
   }
   yu_array_free(conf->sections);
@@ -34,20 +41,42 @@ void yu_sect_conf_free(YUSectConf *conf) {
   free(conf);
 }
 
-void yu_sect_conf_parse(YUSectConf *conf, char *data, YUString *err) {
+void yu_sect_conf_parse(YUSectConf *conf, char *filepath, YUString *err) {
   char             *p;
   char             *beg;
+  int               fd;
   int               line = 0;
   char             *lineptr;
   YUSectConfSection section;
   YUSectConfEntry   entry;
+  YUString         *contents;
+  char              buf[BUFSIZ];
+  int               count;
 
-  section.name    = strdup("global");
+  fd = open(filepath,O_RDONLY);
+  
+  if (fd == -1) {
+    yu_string_sprintfa(err, "%s: %s\n", strerror(errno), filepath);
+    return;
+  }
+
+  contents = yu_string_new();
+
+  while ((count = read(fd, buf, sizeof(buf))) > 0) {
+    yu_string_append(contents, buf, count);
+  }
+
+  if (count < 0) {
+    yu_string_sprintfa(err, "%s: %s\n", strerror(errno), filepath);
+    goto yu_sect_conf_parse_free_and_return;
+  }
+
+  section.name    = 0;
   section.entries = yu_array_new(sizeof(YUSectConfEntry));
   
   yu_array_append(conf->sections, &section);
 
-  for (p = data; *p != 0; p++) {
+  for (p = contents->str; *p != 0; p++) {
     line++;
     lineptr = p;
     if (*p == '\n') continue;
@@ -75,7 +104,7 @@ void yu_sect_conf_parse(YUSectConf *conf, char *data, YUString *err) {
       free(entry.key);
       yu_string_sprintfa(err,"line %d col %d - equal sign (=) expected",
                          line, p-lineptr);
-      return;
+      goto yu_sect_conf_parse_free_and_return;
     }
     p++;
     while (isblank(*p) && *p != 0 && *p != '\n') p++;
@@ -86,6 +115,10 @@ void yu_sect_conf_parse(YUSectConf *conf, char *data, YUString *err) {
     yu_array_append(section.entries,&entry);
     while (*p != '\n' && *p != 0) p++;
   }
+
+yu_sect_conf_parse_free_and_return:
+  yu_string_free(contents);
+  return;
 }
 
 YUSectConfEntry yu_sect_conf_get(YUSectConf * conf, char *section, char *key) {
@@ -94,16 +127,20 @@ YUSectConfEntry yu_sect_conf_get(YUSectConf * conf, char *section, char *key) {
   YUSectConfSection sect;
   YUSectConfEntry   entry;
   
-  memset(&entry,0,sizeof(YUSectConfEntry));
 
   for (i = 0; i < conf->sections->len; i++) {
+    memset(&sect,0,sizeof(YUSectConfSection));
     sect = yu_array_index(conf->sections,YUSectConfSection,i);
-    if (strcmp(sect.name,section) != 0) continue;
+    if (sect.name != section && 
+        sect.name != 0 && section != 0 && 
+        strcmp(sect.name,section) != 0) continue;
     for (n = 0; n < sect.entries->len; n++) {
+      memset(&entry,0,sizeof(YUSectConfEntry));
       entry = yu_array_index(sect.entries,YUSectConfEntry,n);
       if (strcmp(entry.key,key) != 0) continue;
       return entry;
     }
   }
+  memset(&entry,0,sizeof(YUSectConfEntry));
   return entry;
 }

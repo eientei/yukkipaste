@@ -21,7 +21,7 @@
 #define PTR_MIME                yu_ptr_mime             /* char*           */
 #define PTR_PARENT              yu_ptr_parent           /* char*           */
 #define PTR_AUTHOR              yu_ptr_author           /* char*           */
-#define PTR_BODY                yu_ptr_body             /* char*           */
+#define PTR_DATA                yu_ptr_data             /* char*           */
 #define PTR_PRIVATE             yu_ptr_private          /* int             */
 #define PTR_RUN                 yu_ptr_run              /* int             */
 #define PTR_LOG_DOMAIN          yu_ptr_log_domain       /* YULog*          */
@@ -51,7 +51,7 @@
   char  *PTR_MIME       = 0; \
   char  *PTR_PARENT     = 0; \
   char  *PTR_AUTHOR     = 0; \
-  char  *PTR_BODY       = 0; \
+  char  *PTR_DATA       = 0; \
   int    PTR_PRIVATE    = 0; \
   int    PTR_RUN        = 0; \
   YULog *PTR_LOG_DOMAIN = 0;

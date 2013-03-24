@@ -16,6 +16,7 @@ YUString * yu_string_new() {
 }
 
 void yu_string_clear(YUString *str) {
+  str->str[0] = 0;
   str->len = 0;
 }
 

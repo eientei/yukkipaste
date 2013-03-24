@@ -10,7 +10,7 @@ typedef struct {
   int      null_terminate;
 } YUPointerArray;
 
-YUPointerArray *yu_pointer_array_new(int null_terminate);       
+YUPointerArray *yu_pointer_array_new();       
 void            yu_pointer_array_append(YUPointerArray *arr, void *data);
 void            yu_pointer_array_free(YUPointerArray *arr);
 

@@ -34,10 +34,6 @@
 
 #include "moduleinfo.h"
 
-#ifndef BUFSIZ
-#define BUFSIZ 4096
-#endif
-
 #define USER_CONF_FILE "~/.config/yukkipaste/config"
 
 static char* headers =
@@ -49,120 +45,143 @@ static char* headers =
  "Content-Length: %d\r\n"
  "\r\n";
 
-static char                   buf[BUFSIZ];
-static YULog                 *log_domain = 0;
-static YUArray               *modules = 0;
-static YUPointerArray        *module_paths = 0;
-static YUSectConf            *userconfig = 0;
-static char                 **args = 0;
-static int                    verbosity_flag = 0;
+/* Global internals */
+static YUPointerArray       *g_module_paths  = 0; /* used in CLI and config */
+static YULog                *g_log_domain    = 0; /* used in module input   */
+static YUArray              *g_paste_modules = 0;
+static YUSectConf           *g_user_config   = 0;
+static YukkipasteModuleInfo  g_active_module;
+static char                 *g_module_name   = 0;
+static char                 *g_pastebin_host = 0;
+static char                 *g_pastebin_port = 0;
+static char                 *g_pastebin_root = 0;
 
-static char                  *remote_filename = 0;
-static char                  *mime_type = 0;
-static char                  *pastebin_host = 0;
-static char                  *pastebin_port = 0;
-static char                  *pastebin_root = 0;
-static int                    source_fd = -1;
-static char                  *module_to_use = 0;
-static YukkipasteModuleInfo   active_module;
-static YUString              *transmit_data = 0;
-static YUString              *post_path = 0;
-static int                    sock_fd = 0;
-static YUString              *reply = 0;
-static YUString              *request_headers = 0;
-static YUString              *content_type = 0;
+/* Resources */
+static char                  rsr_io_buffer[BUFSIZ];
+static int                   rsr_sock_fd             = 0;
+static int                   rsr_file_fd             = 0;
 
-/* PTR parameters */
-static char                  *language_name = 0;
-static char                  *source_name = 0;
-static char                  *pastebin_uri = 0;
-static char                  *mime = 0;
-static char                  *parent_id_name = "";
-static char                  *author_name = "";
-static YUString              *file_data = 0;
-static int                    is_paste_private = 0;
-static int                    run_code = 0;
+/* Transitions */
+static YUString             *trn_file_contents       = 0;
+static YUString             *trn_request_data        = 0;
+static YUString             *trn_request_headers     = 0;
+static YUString             *trn_request_path        = 0;
+static YUString             *trn_content_type        = 0;
+static YUString             *trn_reply_data          = 0;
+static YUString             *trn_uri                 = 0;
+static YUString             *trn_error               = 0;
+static YUString             *trn_userconf_error      = 0;
 
-/* Logical flow flags */
-static int                    list_languages = 0;
-static int                    list_modules = 0;
-static int                    print_help = 0;
+/* CLI argument values */
+static char                **cli_leftovers           = 0;
+static int                   cli_help_flag           = 0;
+static int                   cli_list_modules_flag   = 0;
+static int                   cli_list_languages_flag = 0;
+static int                   cli_verbose_flag        = 3;
+static char                 *cli_author_arg          = 0;
+static char                 *cli_uri_arg             = 0;
+static char                 *cli_lang_arg            = 0;
+static char                 *cli_remote_name_arg     = 0;
+static char                 *cli_mime_type_arg       = 0;
+static char                 *cli_module_name_arg     = 0;
+static char                 *cli_parent_paste_arg    = 0;
+static int                   cli_private_switch      = 0;
+static int                   cli_runnable_switch     = 0;
 
-/* Module process reply output arguemnts */
-static YUString              *mod_proc_reply_out = 0;
+/* Config properties values */
+static int                   cfg_verbose_flag        = 0;
+static char                 *cfg_author_arg          = 0;
+static char                 *cfg_uri_arg             = 0;
+static char                 *cfg_lang_arg            = 0;
+static char                 *cfg_module_name_arg     = 0;
+static int                   cfg_private_switch      = 0;
+static int                   cfg_runnable_switch     = 0;
 
-static void signal_cleanup(int sig);
-static void cleanup(void);
-static int init(void);
-static int parse_options(int argc, char **argv);
-static int action_list_modules(void);
-static int scan_module_dirs(void);
-static int parse_uri(void);
-static int open_file(void);
-static int read_file(void);
-static int select_active_module(void);
-static int mod_init(void);
-static int mod_form_request(void);
-static int open_socket(void);
-static int form_headers(void);
-static int transfer_data(void);
-static int mod_process_reply(void);
-static int parse_language(void);
-static int action_list_languages(void);
-static int parse_userconfig(void);
+/* Module input variables */
+static char                 *ptr_lang                = 0;
+static char                 *ptr_uri                 = 0;
+static char                 *ptr_filename            = 0;
+static char                 *ptr_mime                = 0;
+static char                 *ptr_parent              = 0;
+static char                 *ptr_author              = 0;
+static char                 *ptr_data                = 0;
+static int                   ptr_private             = 0;
+static int                   ptr_run                 = 0;
 
-static YUOption options[] =
+static YUOption options[] = 
 {
-  { "help", 'h', OPTION_ARG_NONE, &print_help, 
+  { "help", 'h', OPTION_ARG_NONE, &cli_help_flag,
     "Prints help message", 0 },
 
-  { "modules-dir", 'd', OPTION_ARG_POINTER_ARRAY, &module_paths, 
+  { "modules-dir", 'd', OPTION_ARG_POINTER_ARRAY, &g_module_paths,
     "Appends module path. Stackable.", "DIR" },
-  
-  { "list-modules", 0, OPTION_ARG_NONE, &list_modules,
+
+  { "list-modules", 0, OPTION_ARG_NONE, &cli_list_modules_flag,
     "Lists available modules", 0 },
 
-  { "verbose", 'v', OPTION_ARG_NONE, &verbosity_flag,
-    "Increases verbosity level.", 0 },
+  { "verbose", 'v', OPTION_ARG_NONE, &cli_verbose_flag,
+    "Increases verbosity level", 0 },
 
-  { "author", 'a', OPTION_ARG_STRING, &author_name,
+  { "author", 'a', OPTION_ARG_STRING, &cli_author_arg,
     "Your name", "STRING" },
 
-  { "uri", 'u', OPTION_ARG_STRING, &pastebin_uri,
+  { "uri", 'u', OPTION_ARG_STRING, &cli_uri_arg,
     "Pastebin URI", "URI" },
 
-  { "language", 'l', OPTION_ARG_STRING, &language_name,
+  { "language", 'l', OPTION_ARG_STRING, &cli_lang_arg,
     "Paste language", "LANG" },
 
-  { "list-languages", 0, OPTION_ARG_NONE, &list_languages,
-    "Lists avialable languages for selected module", 0 },
+  { "list-languages", 0, OPTION_ARG_NONE, &cli_list_languages_flag,
+    "Lists available languages for selected module", 0 },
 
-  { "remote-name", 'n', OPTION_ARG_STRING, &remote_filename,
+  { "remote-name", 'n', OPTION_ARG_STRING, &cli_remote_name_arg,
     "Remote file name", "NAME" },
 
-  { "mime-type", 0, OPTION_ARG_STRING, &mime_type,
+  { "mime-type", 0, OPTION_ARG_STRING, &cli_mime_type_arg,
     "Paste mime type", "MIME" },
 
-  { "module", 'm', OPTION_ARG_STRING, &module_to_use, 
+  { "module", 'm', OPTION_ARG_STRING, &cli_module_name_arg,
     "Selects module to use", "MODULE" },
 
-  { "parent-id", 'p', OPTION_ARG_STRING, &parent_id_name,
+  { "parent-id", 0, OPTION_ARG_STRING, &cli_parent_paste_arg,
     "Parent paste id", "ID" },
 
-  { "secret", 's', OPTION_ARG_NONE, &is_paste_private,
-    "Marks a secret (private) paste", 0, },
-  
-  { "run", 'r', OPTION_ARG_NONE, &run_code,
-    "Marks paste as runnable on pastebin side", 0, },
+  { "private", 'p', OPTION_ARG_NONE, &cli_private_switch,
+    "Marks paste as private", 0 },
 
-  { 0, 0, OPTION_ARG_LEFTOVERS, &args, 0, 0},
+  { "run", 'r', OPTION_ARG_NONE, &cli_runnable_switch,
+    "Marks paste as runnable", 0 },
+
+  { 0, 0, OPTION_ARG_LEFTOVERS, &cli_leftovers, 0, 0 },
   
   { 0, 0, 0, 0, 0, 0 }
 };
 
-int main(int argc, char ** argv) {
+
+static void signal_cleanup(int sig);
+static void cleanup(void);
+static int init(void);
+static int parse_userconfig(void);
+static int parse_options(int argc, char **argv);
+static int interpolate_props(void);
+static int scan_module_dirs(void);
+static int select_active_module(void);
+static int action_list_modules(void);
+static int action_list_languages(void);
+static int parse_uri(void);
+static int parse_language(void);
+static int open_file(void);
+static int read_file(void);
+static int mod_init(void);
+static int mod_form_request(void);
+static int form_headers(void);
+static int open_socket(void);
+static int transfer_data(void);
+static int mod_process_reply(void);
+
+int main(int argc, char **argv) {
   atexit(cleanup);
-  signal(SIGINT, signal_cleanup);
+  signal(SIGINT,  signal_cleanup);
   signal(SIGSEGV, signal_cleanup);
 
   if (init() != 0) {
@@ -173,24 +192,28 @@ int main(int argc, char ** argv) {
     return 1;
   }
 
-  if (parse_options(argc,argv) != 0) {
+  if (parse_options(argc, argv) != 0) {
+    return 1;
+  }
+
+  if (interpolate_props() != 0) {
     return 1;
   }
 
   if (scan_module_dirs() != 0) {
     return 1;
   }
-
-  if (list_modules) {
-    action_list_modules();
-    return 0;
-  }
-
+  
   if (select_active_module() != 0) {
     return 1;
   }
 
-  if (list_languages) {
+  if (cli_list_modules_flag) {
+    action_list_modules();
+    return 0;
+  }
+
+  if (cli_list_languages_flag) {
     action_list_languages();
     return 0;
   }
@@ -234,181 +257,14 @@ int main(int argc, char ** argv) {
   if (mod_process_reply() != 0) {
     return 1;
   }
-  
-  return 0;
-}
 
-static int parse_userconfig(void) {
-  YUString        *contents;
-  YUString        *err;
-  int              fd;
-  int              count;
-  int              ret = 0;
-  int              itmp;
-  char            *p;
-  char            *beg;
-  YUSectConfEntry  entry;
-  glob_t           globbuf;
-
-  glob(USER_CONF_FILE, GLOB_TILDE, 0, &globbuf);
-
-  if (globbuf.gl_pathc == 0) {
-    log_info(log_domain, "Could not glob pattern: %s\n", USER_CONF_FILE);
-  }
-
-  contents    = yu_string_new();
-  err         = yu_string_new();
-
-  fd = open(globbuf.gl_pathv[0],O_RDONLY);
-  
-  if (fd == -1) {
-    log_info(log_domain, "%s: %s\n", strerror(errno), USER_CONF_FILE);
-    goto parse_userconfig_free_and_return;
-  }
-  
-  while ((count = read(fd, buf, sizeof(buf))) > 0) {
-    yu_string_append(contents, buf, count);
-  }
-
-  if (count < 0) {
-    log_info(log_domain, "%s: %s\n", strerror(errno), source_name);
-    goto parse_userconfig_free_and_return;
-  }
-
-  yu_sect_conf_parse(userconfig, contents->str, err);
-
-  if (err->len > 0) {
-    log_error(log_domain, "Error parsing config file %s:\n%s\n",
-              globbuf.gl_pathv[0], err->str);
-    ret = 1;
-    goto parse_userconfig_free_and_return;
-  }
-
-  if (module_to_use == 0) {
-    entry = yu_sect_conf_get(userconfig,"global","module");
-
-    module_to_use = entry.value;
-  }
-
-  entry = yu_sect_conf_get(userconfig,"global","verbosity");
-
-  if (entry.value != 0) {
-    itmp = atoi(entry.value);
-    if (itmp >= 0 && itmp <= 6) {
-      log_domain->current_level = 0;
-      if (itmp > 0) log_domain->current_level |= LOG_ERROR;
-      if (itmp > 1) log_domain->current_level |= LOG_WARN;
-      if (itmp > 2) log_domain->current_level |= LOG_MSG;
-      if (itmp > 3) log_domain->current_level |= LOG_INFO;
-      if (itmp > 4) log_domain->current_level |= LOG_DEBUG;
-      if (itmp > 5) log_domain->current_level |= LOG_TRACE;
-    } else {
-      ret = 1;
-      log_error(log_domain, "Error parsing config file %s:\nline %d - %s\n",
-                globbuf.gl_pathv[0], entry.line,
-                "Value of verbosity level is not in 0..6 range");
-      goto parse_userconfig_free_and_return;
-    }
-  }
-
-  entry = yu_sect_conf_get(userconfig,"global","modules_dirs");
-
-  if (entry.value != 0) {
-    for (p = entry.value; *p != 0; p++) {
-      beg = p;
-      while (*p != 0 && *p != ':') p++;
-      if (p != beg) {
-        yu_pointer_array_append(module_paths,strndup(beg,p-beg));
-      }
-      if (*p == 0) break;
-    }
-  }
-
-#define GLOBAL_STR_USERCONFIG_PROPERTY(N,F) \
-  entry = yu_sect_conf_get(userconfig,"global",#N); \
-  if (entry.value != 0) { F = entry.value; }
-
-  GLOBAL_STR_USERCONFIG_PROPERTY(author,author_name);
-  GLOBAL_STR_USERCONFIG_PROPERTY(uri,pastebin_uri);
-  GLOBAL_STR_USERCONFIG_PROPERTY(lang,language_name);
-
-  entry = yu_sect_conf_get(userconfig, "global", "private");
-  if (entry.value != 0) { is_paste_private = atoi(entry.value); }
-  
-  entry = yu_sect_conf_get(userconfig, "global", "run");
-  if (entry.value != 0) { run_code = atoi(entry.value); }
-
-parse_userconfig_free_and_return:
-  yu_string_free(err);
-  globfree(&globbuf);
-  yu_string_free(contents);
-  return ret;
-}
-
-static int action_list_languages(void) {
-  char **l;
-
-  for (l = active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
-    log_msg(log_domain, "    - %s\n",*l);
-  }
-  return 0;
-}
-
-static int parse_language(void) {
-  char             soundex[5];
-  YUPointerArray  *variants;
-  char           **l;
-  int              ret = 0;
-  int              i;
-
-  if (language_name == 0) {
-    language_name = active_module.PASTEBIN_LANG;
-  }
-
-  for (l = active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
-    if (strcasecmp(*l,language_name) == 0) {
-      language_name = *l;
-      return 0;
-    }
-  }
-
-  variants = yu_pointer_array_new(0);
-  strncpy(soundex,yu_soundex(language_name),5);
-  
-  for (l = active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
-    if (strcmp(yu_soundex(*l),soundex) == 0) {
-      yu_pointer_array_append(variants,*l);
-    }
-  }
-
-  if (variants->len == 0) {
-    ret = 1;
-    log_error(log_domain, "Language \"%s\" is not available from module \"%s\"\n",
-                          language_name, active_module.MODULE_NAME);
-    goto parse_language_free_and_return;
-  }
-
-  if (variants->len == 1) {
-    language_name = yu_pointer_array_index(variants,0);
-    goto parse_language_free_and_return;
-  }
-
-  log_msg(log_domain, "Ambigous language variants: \n");
-  for (i = 0; i < variants->len; i++) {
-    log_msg(log_domain, "    - %s\n", yu_pointer_array_index(variants,i));
-  }
-
-  ret = 1;
-
-parse_language_free_and_return:
-  yu_pointer_array_free(variants);
-  return ret;
+  return 0;  
 }
 
 static int mod_process_reply(void) {
   int ret;
-  ret = active_module.PROCESS_REPLY_FUNC(reply->str, mod_proc_reply_out);
-  log_msg(log_domain, "%s\n", mod_proc_reply_out->str);
+  ret = g_active_module.PROCESS_REPLY_FUNC(trn_reply_data->str, trn_uri);
+  log_msg(g_log_domain, "%s\n", trn_uri->str);
   return ret;
 }
 
@@ -421,25 +277,25 @@ static int transfer_data(void) {
   int          length = 0;
   YUString    *tmp = 0;
 
-  log_trace(log_domain, "%s\n", request_headers->str);
+  log_trace(g_log_domain, "%s\n", trn_request_headers->str);
 
-  while ((count = send(sock_fd,
-                       request_headers->str+count,
-                       request_headers->len-count,0)) > 0);
+  while ((count = send(rsr_sock_fd,
+                       trn_request_headers->str+count,
+                       trn_request_headers->len-count,0)) > 0);
   if (count < 0) {
-    log_error(log_domain,"send: %s\n", strerror(errno));
+    log_error(g_log_domain,"send: %s\n", strerror(errno));
     return 1;
   }
   
   count = 0;
   
-  log_trace(log_domain, "%s\n", transmit_data->str);
-  while ((count = send(sock_fd,
-                       transmit_data->str+count,
-                       transmit_data->len-count,0)) > 0);
+  log_trace(g_log_domain, "%s\n", trn_request_data->str);
+  while ((count = send(rsr_sock_fd,
+                       trn_request_data->str+count,
+                       trn_request_data->len-count,0)) > 0);
     
   if (count < 0) {
-    log_error(log_domain,"send: %s\n", strerror(errno));
+    log_error(g_log_domain,"send: %s\n", strerror(errno));
     return 1;
   }
 
@@ -447,8 +303,8 @@ static int transfer_data(void) {
 
   tmp = yu_string_new();
 
-  while ((count = recv(sock_fd,buf,sizeof(buf),0)) > 0) {
-    yu_string_append(tmp,buf,count);
+  while ((count = recv(rsr_sock_fd,rsr_io_buffer,sizeof(rsr_io_buffer),0)) > 0) {
+    yu_string_append(tmp,rsr_io_buffer,count);
     p = tmp->str;
     end = p + tmp->len;
     while (p != end) {
@@ -459,32 +315,18 @@ static int transfer_data(void) {
         p += 4;
         if (strnlen(p,length) >= length) {
           reply_begin = p;
-          close(sock_fd);
+          close(rsr_sock_fd);
         }
         break;
       }
       p++;
     }
   }
-  log_trace(log_domain, "%s\n", tmp->str);
+  log_trace(g_log_domain, "%s\n", tmp->str);
 
-  yu_string_append(reply,reply_begin,length);
+  yu_string_append(trn_reply_data,reply_begin,length);
 
   yu_string_free(tmp);
-  return 0;
-}
-
-static int form_headers(void) {
-  
-  
-  yu_string_sprintfa(request_headers,headers,
-                     pastebin_root,
-                     post_path->str,
-                     pastebin_host,
-                     pastebin_port,
-                     content_type->str,
-                     transmit_data->len);
-
   return 0;
 }
 
@@ -500,20 +342,20 @@ static int open_socket(void) {
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags    = AI_PASSIVE;
 
-  if ((status = getaddrinfo(pastebin_host,pastebin_port,&hints,&res)) != 0) {
-    log_error(log_domain,"%s\n",gai_strerror(status));
+  if ((status = getaddrinfo(g_pastebin_host,g_pastebin_port,&hints,&res)) != 0) {
+    log_error(g_log_domain,"%s\n",gai_strerror(status));
     return 1;
   }
 
-  sock_fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+  rsr_sock_fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
-  if (sock_fd == -1) {
-    log_error(log_domain,"socket: %s\n",strerror(errno));
+  if (rsr_sock_fd == -1) {
+    log_error(g_log_domain,"socket: %s\n",strerror(errno));
     goto open_socket_free_and_return;
   }
 
-  if (connect(sock_fd, res->ai_addr, res->ai_addrlen) == -1) {
-    log_error(log_domain,"connect: %s\n",strerror(errno));
+  if (connect(rsr_sock_fd, res->ai_addr, res->ai_addrlen) == -1) {
+    log_error(g_log_domain,"connect: %s\n",strerror(errno));
     goto open_socket_free_and_return;
   }
 
@@ -522,55 +364,39 @@ open_socket_free_and_return:
   return ret;
 }
 
-static int mod_form_request(void) {
-  return active_module.FORM_REQUEST_FUNC(post_path,
-                                         content_type,
-                                         transmit_data);
+static int form_headers(void) {
+  yu_string_sprintfa(trn_request_headers, headers,
+                     g_pastebin_root,
+                     trn_request_path->str,
+                     g_pastebin_host,
+                     g_pastebin_port,
+                     trn_content_type->str,
+                     trn_request_data->len);
 
+  return 0;
+}
+
+static int mod_form_request(void) {
+  return g_active_module.FORM_REQUEST_FUNC(trn_request_path,
+                                           trn_content_type,
+                                           trn_request_data);
 }
 
 static int mod_init(void) {
-  *active_module.PTR_LANG       = language_name;
-  *active_module.PTR_URI        = pastebin_uri;
-  *active_module.PTR_FILENAME   = source_name;
-  *active_module.PTR_MIME       = mime;
-  *active_module.PTR_PARENT     = parent_id_name;
-  *active_module.PTR_AUTHOR     = author_name;
-  *active_module.PTR_BODY       = file_data->str;
-  *active_module.PTR_PRIVATE    = is_paste_private;
-  *active_module.PTR_RUN        = run_code;
-  *active_module.PTR_LOG_DOMAIN = log_domain;
+  *g_active_module.PTR_LANG       = ptr_lang;
+  *g_active_module.PTR_URI        = ptr_uri;
+  *g_active_module.PTR_FILENAME   = ptr_filename;
+  *g_active_module.PTR_MIME       = ptr_mime;
+  *g_active_module.PTR_PARENT     = ptr_parent;
+  *g_active_module.PTR_AUTHOR     = ptr_author;
+  *g_active_module.PTR_DATA       = ptr_data;
+  *g_active_module.PTR_PRIVATE    = ptr_private;
+  *g_active_module.PTR_RUN        = ptr_run;
+  *g_active_module.PTR_LOG_DOMAIN = g_log_domain;
  
-  return active_module.INIT_MODULE_FUNC();
+  return g_active_module.INIT_MODULE_FUNC();
 }
 
-static int select_active_module(void) {
-  int i;
-  YukkipasteModuleInfo m;
-
-  if (modules->len == 0) {
-    log_error(log_domain, "No modules were loaded. Check -d option for use\n");
-    return 1;
-  }
-  if (module_to_use == 0) {
-    active_module = yu_array_index(modules,YukkipasteModuleInfo,0);
-    return 0;
-  }
-
-  for (i = 0; i < modules->len; i++) {
-    m = yu_array_index(modules,YukkipasteModuleInfo,i);
-    if (strcmp(m.MODULE_NAME, module_to_use) == 0) {
-      active_module = m;
-      return 0;
-    }
-  }
-
-  log_error(log_domain, "Wasn't able to match a module named \"%s\"\n",
-            module_to_use);
-
-  log_error(log_domain, "Consider reviewing --list-modules contnets\n");
-  return 1; 
-}
 
 static int read_file(void) {
   int         count;
@@ -579,72 +405,127 @@ static int read_file(void) {
   const char *m;
 #endif
 
-  if (source_fd != STDIN_FILENO && HAVE_LIBMAGIC_TEST && mime_type == 0) {
+  if (rsr_file_fd != STDIN_FILENO && 
+      HAVE_LIBMAGIC_TEST && cli_mime_type_arg == 0) {
 #ifdef HAVE_LIBMAGIC
     magic = magic_open(MAGIC_SYMLINK | MAGIC_MIME_TYPE);
     if (magic == 0) {
-      log_warn(log_domain,"%s\n",magic_error(magic));
+      log_warn(g_log_domain,"%s\n",magic_error(magic));
       goto mime_fallback;
     }
     magic_load(magic,0);
-    m = magic_file(magic,source_name);
+    m = magic_file(magic,ptr_filename);
     if (m == 0) {
-      log_warn(log_domain,"%s\n",magic_error(magic));
+      log_warn(g_log_domain,"%s\n",magic_error(magic));
       magic_close(magic);
       goto mime_fallback;
     }
-    mime = strdup((char*)m);
+    ptr_mime = strdup((char*)m);
     magic_close(magic);
 #endif
   } else {
 mime_fallback:
-    if (mime_type == 0) {
-      mime = strdup("text/plain");
+    if (cli_mime_type_arg == 0) {
+      ptr_mime = strdup("text/plain");
     } else {
-      mime = strdup(mime_type);
+      ptr_mime = strdup(cli_mime_type_arg);
     }
   }
 
-  while ((count = read(source_fd, buf, sizeof(buf))) > 0) {
-    yu_string_append(file_data, buf, count);
+  while ((count = read(rsr_file_fd, rsr_io_buffer, sizeof(rsr_io_buffer))) > 0) {
+    yu_string_append(trn_file_contents, rsr_io_buffer, count);
   }
 
   if (count < 0) {
-    log_error(log_domain, "%s: %s\n", strerror(errno), source_name);
+    log_error(g_log_domain, "%s: %s\n", strerror(errno), ptr_filename);
   }
 
-  if (file_data->len == 0) {
-    log_error(log_domain, "Empty input, aborting.\n");
+  if (trn_file_contents->len == 0) {
+    log_error(g_log_domain, "Empty input, aborting.\n");
     return 1;
   }
+
+  ptr_data = trn_file_contents->str;
 
   return 0;
 }
 
 static int open_file(void) {
-  char       *arg;
+  char *arg;
 
-  if (args[0] == 0) {
-    source_fd = STDIN_FILENO;
-    if (remote_filename == 0) {
-      source_name = "stdin";
+  if (cli_leftovers[0] == 0) {
+    rsr_file_fd = STDIN_FILENO;
+    if (ptr_filename == 0) {
+      ptr_filename = "stdin";
     }
   } else {
-    arg = args[0];
+    arg = cli_leftovers[0];
     if (strcmp("-", arg) == 0) {
-      source_fd = STDIN_FILENO;
-      source_name = "stdin";
+      rsr_file_fd = STDIN_FILENO;
+      ptr_filename = "stdin";
     } else {
-      source_fd = open(arg,O_RDONLY);
-      if (source_fd == -1) {
-        log_error(log_domain, "%s: %s\n", strerror(errno), arg);
+      rsr_file_fd = open(arg,O_RDONLY);
+      if (rsr_file_fd == -1) {
+        log_error(g_log_domain, "%s: %s\n", strerror(errno), arg);
         return 1;
       }
-      source_name = arg;
+      ptr_filename = arg;
     }
   }
 
   return 0;
+}
+
+static int parse_language(void) {
+  char             soundex[5];
+  YUPointerArray  *variants;
+  char           **l;
+  int              ret = 0;
+  int              i;
+
+  if (ptr_lang == 0) {
+    ptr_lang = g_active_module.PASTEBIN_LANG;
+  }
+
+  for (l = g_active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
+    if (strcasecmp(*l,ptr_lang) == 0) {
+      ptr_lang = *l;
+      return 0;
+    }
+  }
+
+  variants = yu_pointer_array_new(0);
+  strncpy(soundex,yu_soundex(ptr_lang),5);
+  
+  for (l = g_active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
+    if (strcmp(yu_soundex(*l),soundex) == 0) {
+      yu_pointer_array_append(variants,*l);
+    }
+  }
+
+  if (variants->len == 0) {
+    ret = 1;
+    log_error(g_log_domain,
+              "Language \"%s\" is not available from module \"%s\"\n",
+              ptr_lang, g_active_module.MODULE_NAME);
+    goto parse_language_free_and_return;
+  }
+
+  if (variants->len == 1) {
+    ptr_lang = yu_pointer_array_index(variants,0);
+    goto parse_language_free_and_return;
+  }
+
+  log_msg(g_log_domain, "Ambigous language variants: \n");
+  for (i = 0; i < variants->len; i++) {
+    log_msg(g_log_domain, "    - %s\n", yu_pointer_array_index(variants,i));
+  }
+
+  ret = 1;
+
+parse_language_free_and_return:
+  yu_pointer_array_free(variants);
+  return ret;
 }
 
 static int parse_uri(void) {
@@ -654,11 +535,12 @@ static int parse_uri(void) {
   char *port_end = 0;
   char *path_beg = 0;
   
-  if (pastebin_uri == 0) {
-    pastebin_uri = active_module.PASTEBIN_URI;
+  if (ptr_uri == 0) {
+    ptr_uri = g_active_module.PASTEBIN_URI;
   }
-  host_beg = pastebin_uri;
-  if (strncmp("http://",pastebin_uri,7) == 0) {
+
+  host_beg = ptr_uri;
+  if (strncmp("http://",ptr_uri,7) == 0) {
     host_beg += 7;
   }
 
@@ -667,11 +549,11 @@ static int parse_uri(void) {
   while (*host_end != ':' && *host_end != '/' && *host_end != '\0') host_end++;
 
   if (host_beg == host_end) {
-    log_error(log_domain,"Empty host in URI\n");
+    log_error(g_log_domain,"Empty host in URI\n");
     return 1;
   }
 
-  pastebin_host = strndup(host_beg, host_end - host_beg);
+  g_pastebin_host = strndup(host_beg, host_end - host_beg);
 
   path_beg = host_end;
   
@@ -684,16 +566,25 @@ static int parse_uri(void) {
     path_beg = port_end;
     
     if (port_beg == port_end) {
-      log_error(log_domain,"Empty port in URI\n");
+      log_error(g_log_domain,"Empty port in URI\n");
       return 1;
     }
 
-    pastebin_port = strndup(port_beg, port_end - port_beg);
+    g_pastebin_port = strndup(port_beg, port_end - port_beg);
   } else {
-    pastebin_port = strdup("80");
+    g_pastebin_port = strdup("80");
   }
 
-  pastebin_root = strdup(path_beg);
+  g_pastebin_root = strdup(path_beg);
+  return 0;
+}
+
+static int action_list_languages(void) {
+  char **l;
+
+  for (l = g_active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
+    log_msg(g_log_domain, "    - %s\n",*l);
+  }
   return 0;
 }
 
@@ -710,8 +601,8 @@ static int action_list_modules(void) {
 
   fmt = yu_string_new();
 
-  for (i = 0; i < modules->len; i++) {
-    m = yu_array_index(modules,YukkipasteModuleInfo,i);
+  for (i = 0; i < g_paste_modules->len; i++) {
+    m = yu_array_index(g_paste_modules,YukkipasteModuleInfo,i);
     len = strlen(m.MODULE_NAME);
     if (len > name_maxlen) name_maxlen = len;
 
@@ -732,15 +623,43 @@ static int action_list_modules(void) {
                                                      descr_maxlen   + pad);
 
 
-  log_msg(log_domain, fmt->str, "name", "ver", "author", "description");
-  for (i = 0; i < modules->len; i++) {
-    m = yu_array_index(modules,YukkipasteModuleInfo,i);
-    log_msg(log_domain, fmt->str, m.MODULE_NAME, m.MODULE_VERSION,
-                                  m.MODULE_AUTHOR, m.MODULE_DESCRIPTION);
+  log_msg(g_log_domain, fmt->str, "name", "ver", "author", "description");
+  for (i = 0; i < g_paste_modules->len; i++) {
+    m = yu_array_index(g_paste_modules,YukkipasteModuleInfo,i);
+    log_msg(g_log_domain, fmt->str, m.MODULE_NAME, m.MODULE_VERSION,
+                                    m.MODULE_AUTHOR, m.MODULE_DESCRIPTION);
   }
 
   yu_string_free(fmt);
   return 0;
+}
+
+static int select_active_module(void) {
+  int i;
+  YukkipasteModuleInfo m;
+
+  if (g_paste_modules->len == 0) {
+    log_error(g_log_domain, "No modules were loaded. Check -d option for use\n");
+    return 1;
+  }
+  if (g_module_name == 0) {
+    g_active_module = yu_array_index(g_paste_modules,YukkipasteModuleInfo,0);
+    return 0;
+  }
+
+  for (i = 0; i < g_paste_modules->len; i++) {
+    m = yu_array_index(g_paste_modules,YukkipasteModuleInfo,i);
+    if (strcmp(m.MODULE_NAME, g_module_name) == 0) {
+      g_active_module = m;
+      return 0;
+    }
+  }
+
+  log_error(g_log_domain, "Wasn't able to match a module named \"%s\"\n",
+            g_module_name);
+
+  log_error(g_log_domain, "Consider reviewing --list-modules contnets\n");
+  return 1; 
 }
 
 static int scan_module_dirs(void) {
@@ -761,11 +680,11 @@ static int scan_module_dirs(void) {
 
   fullpath = yu_string_new();
 
-  for (i = 0; i < module_paths->len; i++) {
-    path = yu_pointer_array_index(module_paths,i);
+  for (i = 0; i < g_module_paths->len; i++) {
+    path = yu_pointer_array_index(g_module_paths,i);
     directory = opendir(path);
     if (directory == 0) {
-      log_debug(log_domain, "%s: %s\n", strerror(errno), path);
+      log_debug(g_log_domain, "%s: %s\n", strerror(errno), path);
       continue;
     }
     yu_string_append0(fullpath,path);
@@ -780,11 +699,11 @@ static int scan_module_dirs(void) {
           strcmp("..", path) != 0) continue;
       yu_string_append_at0(fullpath, len, entry->d_name);
       if (stat(fullpath->str,&info) != 0) {
-        log_debug(log_domain, "%s: %s\n", strerror(errno), fullpath->str);
+        log_debug(g_log_domain, "%s: %s\n", strerror(errno), fullpath->str);
         continue;
       }
       if (!S_ISREG(info.st_mode)) {
-        log_debug(log_domain, "File is not a regular file: %s\n", fullpath->str);
+        log_debug(g_log_domain, "File is not a regular file: %s\n", fullpath->str);
         continue;
       }
 
@@ -796,7 +715,7 @@ static int scan_module_dirs(void) {
         /* ok */
       } else {
         /* fail */
-        log_debug(log_domain, "File is not readable: %s\n", fullpath->str);
+        log_debug(g_log_domain, "File is not readable: %s\n", fullpath->str);
         continue;
       }
    
@@ -805,14 +724,14 @@ static int scan_module_dirs(void) {
       module_info.handle = dlopen(fullpath->str, RTLD_LAZY | RTLD_LOCAL);
 
       if (module_info.handle == 0) {
-        log_debug(log_domain, "%s\n", dlerror());
+        log_debug(g_log_domain, "%s\n", dlerror());
         continue;
       }
 
 #define LOAD_SYM_OR_FAIL(ASS, SYM, SYMNAME) \
   fptr = dlsym(module_info.handle, #SYM); \
   if (fptr == 0) { \
-    log_info(log_domain, "%s (%s = %s)\n", dlerror(), SYMNAME, #SYM); \
+    log_info(g_log_domain, "%s (%s = %s)\n", dlerror(), SYMNAME, #SYM); \
     dlclose(module_info.handle); \
     continue; \
   } \
@@ -846,12 +765,14 @@ static int scan_module_dirs(void) {
       LOAD_PPTR_OR_FAIL(PTR_MIME, char**);
       LOAD_PPTR_OR_FAIL(PTR_PARENT, char**);
       LOAD_PPTR_OR_FAIL(PTR_AUTHOR, char**);
-      LOAD_PPTR_OR_FAIL(PTR_BODY, char**);
+      LOAD_PPTR_OR_FAIL(PTR_DATA, char**);
       LOAD_PPTR_OR_FAIL(PTR_PRIVATE, int*);
       LOAD_PPTR_OR_FAIL(PTR_RUN, int*);
       LOAD_PPTR_OR_FAIL(PTR_LOG_DOMAIN, YULog**);
         
-      yu_array_append(modules,&module_info);
+      yu_array_append(g_paste_modules,&module_info);
+      log_trace(g_log_domain, "Loaded module %s (%s)\n", 
+                module_info.MODULE_NAME, fullpath->str);
     }
     closedir(directory);
   }
@@ -861,81 +782,207 @@ static int scan_module_dirs(void) {
   return 0;
 }
 
+static int interpolate_props(void) {
+  YUSectConfEntry entry;
+  int             verbose;
+
+  g_module_name = cfg_module_name_arg;
+
+  if (cli_module_name_arg != 0) {
+    g_module_name = cli_module_name_arg;
+  }
+
+  entry = yu_sect_conf_get(g_user_config, g_module_name, "author");
+  if (entry.value != 0) { cfg_author_arg = entry.value; }
+
+  entry = yu_sect_conf_get(g_user_config, g_module_name, "uri");
+  if (entry.value != 0) { cfg_uri_arg = entry.value; }
+
+  entry = yu_sect_conf_get(g_user_config, g_module_name, "lang");
+  if (entry.value != 0) { cfg_lang_arg = entry.value; }
+
+  entry = yu_sect_conf_get(g_user_config, g_module_name, "private");
+  if (entry.value != 0) { cfg_private_switch = atoi(entry.value); }
+  
+  entry = yu_sect_conf_get(g_user_config, g_module_name, "run");
+  if (entry.value != 0) { cfg_runnable_switch = atoi(entry.value); }
+ 
+  ptr_parent   = cli_parent_paste_arg;
+  ptr_lang     = cfg_lang_arg;
+  ptr_author   = cfg_author_arg;
+  ptr_private  = cfg_private_switch;
+  ptr_run      = cfg_runnable_switch;
+  
+  if (ptr_parent == 0) {
+    ptr_parent = "";
+  }
+
+  if (cli_lang_arg != 0) {
+    ptr_lang = cli_lang_arg;
+  }
+
+  if (cli_uri_arg != 0) {
+    ptr_uri = cli_uri_arg;
+  }
+
+  if (cli_author_arg != 0) {
+    ptr_author = cli_author_arg;
+  }
+
+  if (cli_private_switch != 0) {
+    ptr_private = cli_private_switch;
+  }
+
+  if (cli_runnable_switch != 0) {
+    ptr_run = cli_runnable_switch;
+  }
+
+  verbose = cfg_verbose_flag;
+  if (cli_verbose_flag > 3) {
+    verbose = cli_verbose_flag;
+  }
+
+  if (verbose > 0) g_log_domain->current_level |= LOG_ERROR;
+  if (verbose > 1) g_log_domain->current_level |= LOG_WARN;
+  if (verbose > 2) g_log_domain->current_level |= LOG_MSG;
+  if (verbose > 3) g_log_domain->current_level |= LOG_INFO;
+  if (verbose > 4) g_log_domain->current_level |= LOG_DEBUG;
+  if (verbose > 5) g_log_domain->current_level |= LOG_TRACE;
+
+  if (trn_userconf_error->len > 0) {
+    log_info(g_log_domain, "Error parsing config file %s:\n%s\n",
+             USER_CONF_FILE, trn_userconf_error->str);
+  }
+
+  return 0;
+}
+
 static int parse_options(int argc, char **argv) {
   YUOptionParser *parser;
   YUString       *help;
-  YUString       *error;
+  YUString       *err;
   int             ret = 0;
 
-  parser = yu_options_new(argc, argv);
+  parser = yu_options_new(argc,argv);
   help   = yu_string_new();
-  error  = yu_string_new();
+  err    = yu_string_new();
 
-  yu_options_add(parser, options);
-  yu_options_produce_help(parser, help);
+  yu_options_add(parser,options);
+  yu_options_produce_help(parser,help);
 
-  yu_options_parse(parser, error);
+  yu_options_parse(parser, err);
 
-  if (error->len != 0) {
-    log_error(log_domain, "%s\n", error->str);
-    log_msg(log_domain, "%s\n", help->str);
+  if (err->len != 0) {
+    log_error(g_log_domain, "%s\n", err->str);
+    log_msg(g_log_domain, "%s\n", help->str);
+
     ret = 1;
     goto parse_options_free_and_return;
   }
 
-  if (print_help) {
-    log_msg(log_domain, "%s\n", help->str);
+  if (cli_help_flag) {
+    log_msg(g_log_domain, "%s\n", help->str);
+
     ret = 1;
     goto parse_options_free_and_return;
-  }
-
-  if (verbosity_flag > 0) {
-    log_domain->current_level |= LOG_INFO;
-  }
-
-  if (verbosity_flag > 1) {
-    log_domain->current_level |= LOG_DEBUG;
-  }
-  if (verbosity_flag > 2) {
-    log_domain->current_level |= LOG_TRACE;
   }
 
 parse_options_free_and_return:
-  yu_options_free(parser);
-  yu_string_free(error);
   yu_string_free(help);
+  yu_string_free(err);
+  yu_options_free(parser);
   return ret;
 }
 
-static int init(void) {
-  log_domain = yu_log_new_file(stderr,
-                               stderr,
-                               stdout,
-                               stdout,
-                               stderr,
-                               stderr);
+static int parse_userconfig(void) {
+  char           *p;
+  char           *beg;
+  glob_t          globbuf;
+  YUSectConfEntry entry;
 
-  module_paths = yu_pointer_array_new(1);
-  yu_pointer_array_append(module_paths, 
-      strdup("/usr/share/yukkipaste/modules"));
-  yu_pointer_array_append(module_paths, 
-      strdup("/usr/local/share/yukkipaste/modules"));
-  yu_pointer_array_append(module_paths, 
-      strdup("~/.config/yukkipaste/modules"));
- 
-  userconfig = yu_sect_conf_new();
+  glob(USER_CONF_FILE, GLOB_TILDE, 0, &globbuf);
 
-  modules = yu_array_new(sizeof(YukkipasteModuleInfo));
+  if (globbuf.gl_pathc == 0) {
+    yu_string_sprintfa(trn_userconf_error, "Could not glob filepath: %s\n",
+                       USER_CONF_FILE);
+    return 0;
+  }
+
+  yu_sect_conf_parse(g_user_config, globbuf.gl_pathv[0], trn_userconf_error);
+
+  globfree(&globbuf);
+
+  if (trn_userconf_error->len != 0) return 0;
+
+  entry = yu_sect_conf_get(g_user_config, 0, "module");
+  cfg_module_name_arg = entry.value;
+
+  entry = yu_sect_conf_get(g_user_config, 0, "verbosity");
+  if (entry.value != 0) {
+    cfg_verbose_flag = atoi(entry.value);
+    if (cfg_verbose_flag < 0 || cfg_verbose_flag > 6) {
+      yu_string_sprintfa(trn_userconf_error, "line %d - %s", entry.line,
+                         "Value of verbosity level is not in 0..6 range");
+    }
+  }
+
+  entry = yu_sect_conf_get(g_user_config, 0, "modules_dirs");
+  if (entry.value != 0) {
+    for (p = entry.value; *p != 0; p++) {
+      beg = p;
+      while (*p != 0 && *p != ':') p++;
+      if (p != beg) {
+        yu_pointer_array_append(g_module_paths, beg);
+      }
+      if (*p == 0) break;
+      *p = 0;
+    }
+  }
+
+  entry = yu_sect_conf_get(g_user_config, 0, "author");
+  cfg_author_arg = entry.value;
+
+  entry = yu_sect_conf_get(g_user_config, 0, "uri");
+  cfg_uri_arg = entry.value;
+
+  entry = yu_sect_conf_get(g_user_config, 0, "lang");
+  cfg_lang_arg = entry.value;
+
+  entry = yu_sect_conf_get(g_user_config, 0, "private");
+  if (entry.value != 0) { cfg_private_switch = atoi(entry.value); }
   
-  file_data          = yu_string_new();
-  transmit_data      = yu_string_new();
-  post_path          = yu_string_new();
-  reply              = yu_string_new();
-  request_headers    = yu_string_new();
-  content_type       = yu_string_new();
-  mod_proc_reply_out = yu_string_new();
+  entry = yu_sect_conf_get(g_user_config, 0, "run");
+  if (entry.value != 0) { cfg_runnable_switch = atoi(entry.value); }
 
-  memset(&active_module,0,sizeof(YukkipasteModuleInfo));
+  return 0;
+}
+
+static int init(void) {
+  g_log_domain = yu_log_new_file(stderr,stderr,
+                                 stdout,stdout,
+                                 stderr,stderr);
+
+  g_module_paths = yu_pointer_array_new();
+  yu_pointer_array_append(g_module_paths, "/usr/share/yukkipaste/modules");
+  yu_pointer_array_append(g_module_paths, "/usr/local/share/yukkipaste/modules");
+  yu_pointer_array_append(g_module_paths, "~/.config/yukkipaste/modules");
+
+  g_user_config = yu_sect_conf_new();
+
+  g_paste_modules = yu_array_new(sizeof(YukkipasteModuleInfo));
+
+  trn_file_contents   = yu_string_new();
+  trn_request_data    = yu_string_new();
+  trn_request_headers = yu_string_new();
+  trn_request_path    = yu_string_new();
+  trn_content_type    = yu_string_new();
+  trn_reply_data      = yu_string_new();
+  trn_uri             = yu_string_new();
+  trn_error           = yu_string_new();
+  trn_userconf_error  = yu_string_new();
+
+  memset(&g_active_module,0,sizeof(YukkipasteModuleInfo));
+  
   return 0;
 }
 
@@ -945,95 +992,73 @@ static void signal_cleanup(int sig) {
 }
 
 static void cleanup(void) {
+  int                  i; 
   YukkipasteModuleInfo m;
-  int                  i;
 
-  if (log_domain != 0) {
-    yu_log_free(log_domain);
-    log_domain = 0;
-  }
-  if (module_paths != 0) {
-    for (i = 0; i < module_paths->len; i++) {
-      free(yu_pointer_array_index(module_paths,i));
-    }
-    yu_pointer_array_free(module_paths);
-    module_paths = 0;
-  }
-  
-  if (pastebin_host != 0) {
-    free(pastebin_host);
-    pastebin_host = 0;
+  if (g_log_domain != 0) {
+    yu_log_free(g_log_domain);
+    g_log_domain = 0;
   }
 
-  if (pastebin_port != 0) {
-    free(pastebin_port);
-    pastebin_port = 0;
+  if (g_module_paths != 0) {
+    yu_pointer_array_free(g_module_paths);
+    g_module_paths = 0;
   }
 
-  if (pastebin_root != 0) {
-    free(pastebin_root);
-    pastebin_root = 0;
+  if (g_user_config != 0) {
+    yu_sect_conf_free(g_user_config);
+    g_user_config = 0;
   }
 
-  if (file_data != 0) {
-    yu_string_free(file_data);
-    file_data = 0;
+  if (g_active_module.DEINIT_MODULE_FUNC != 0) {
+    g_active_module.DEINIT_MODULE_FUNC();
+    g_active_module.DEINIT_MODULE_FUNC = 0;
   }
 
-  if (mime != 0) {
-    free(mime);
-    mime = 0;
-  }
-
-  if (transmit_data != 0) {
-    yu_string_free(transmit_data);
-    transmit_data = 0;
-  }
-
-  if (post_path != 0) {
-    yu_string_free(post_path);
-    post_path = 0;
-  }
-
-  if (active_module.DEINIT_MODULE_FUNC != 0) {
-    active_module.DEINIT_MODULE_FUNC();
-    active_module.DEINIT_MODULE_FUNC = 0;
-  }
-
-  if (modules != 0) {
-   for (i = 0; i < modules->len; i++) {
-      m = yu_array_index(modules,YukkipasteModuleInfo,i);
+  if (g_paste_modules != 0) {
+    for (i = 0; i < g_paste_modules->len; i++) {
+      m = yu_array_index(g_paste_modules,YukkipasteModuleInfo,i);
       if (m.handle != 0) {
         dlclose(m.handle);
       }
     }
-    yu_array_free(modules);
-    modules = 0;
+    yu_array_free(g_paste_modules);
+    g_paste_modules = 0;
+  }
+  
+#define FREE_YU_STRING(STR) \
+  if (STR != 0) { \
+    yu_string_free(STR); \
+    STR = 0; \
+  }
+  
+  FREE_YU_STRING(trn_file_contents);
+  FREE_YU_STRING(trn_request_data);
+  FREE_YU_STRING(trn_request_headers);
+  FREE_YU_STRING(trn_request_path);
+  FREE_YU_STRING(trn_content_type);
+  FREE_YU_STRING(trn_reply_data);
+  FREE_YU_STRING(trn_uri);
+  FREE_YU_STRING(trn_error);
+  FREE_YU_STRING(trn_userconf_error);
+
+  if (g_pastebin_host != 0) {
+    free(g_pastebin_host);
+    g_pastebin_host = 0;
   }
 
-  if (reply != 0) {
-    yu_string_free(reply);
-    reply = 0;
+  if (g_pastebin_port != 0) {
+    free(g_pastebin_port);
+    g_pastebin_port = 0;
   }
 
-  if (request_headers != 0) {
-    yu_string_free(request_headers);
-    request_headers = 0;
+  if (g_pastebin_root != 0) {
+    free(g_pastebin_root);
+    g_pastebin_root = 0;
   }
-
-  if (content_type != 0) {
-    yu_string_free(content_type);
-    content_type = 0;
-  }
-
-  if (mod_proc_reply_out != 0) {
-    yu_string_free(mod_proc_reply_out);
-    mod_proc_reply_out = 0;
-  }
-
-  if (userconfig != 0) {
-    yu_sect_conf_free(userconfig);
-    userconfig = 0;
+  
+  if (ptr_mime != 0) {
+    free(ptr_mime);
+    ptr_mime = 0;
   }
 }
-

@@ -339,7 +339,7 @@ int FORM_REQUEST_FUNC(YUString    *post,
   escape_json_string0(escaped_lang,PTR_LANG);  
   escape_json_string0(escaped_filename,PTR_FILENAME);
   escape_json_string0(escaped_mime,PTR_MIME);
-  escape_json_string0(escaped_code,PTR_BODY);
+  escape_json_string0(escaped_code,PTR_DATA);
 
   parent_id = atoi(PTR_PARENT);
 

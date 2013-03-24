@@ -91,6 +91,9 @@ int PROCESS_REPLY_FUNC(char *reply, char **uri, char **err) {
     }
   }
 
+  *uri = yus_uri->str;
+  *err = yus_err->str;
+
   return 0;
 }
 

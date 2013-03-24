@@ -71,8 +71,8 @@ void yu_multipart_generate(YUMultipart *multipart, YUString *out) {
     pair = yu_array_index(multipart->pairs,YUMultipartPair,i);
     yu_string_sprintfa(out, "--%s\r\n", multipart->boundary->str);
     yu_string_sprintfa(out, "Content-Disposition: form-data; "
-                            "name=\"%s\"\r\n", pair.key);
+                            "name=\"%s\"\r\n\r\n", pair.key);
     yu_string_sprintfa(out,"%s\r\n",pair.value);
   }
-  yu_string_sprintfa(out, "--%s\r\n", multipart->boundary->str);
+  yu_string_sprintfa(out, "--%s--\r\n\r\n", multipart->boundary->str);
 }

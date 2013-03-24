@@ -247,12 +247,13 @@ static int mod_process_reply(void) {
 
 static int transfer_data(void) {
   int          count = 0;
+  int          nolen = 0;
   char        *p;
   char        *end;
   char        *reply_begin = 0;
   static char  cl[] = "Content-Length: ";
+  static char  ch[] = "</html>";
   int          length = 0;
-  YUString    *tmp = 0;
 
   log_trace(g_log_domain, "%s\n", trn_request_headers->str);
 
@@ -278,32 +279,31 @@ static int transfer_data(void) {
 
   count = 0;
 
-  tmp = yu_string_new();
-
   while ((count = recv(rsr_sock_fd,rsr_io_buffer,sizeof(rsr_io_buffer),0)) > 0) {
-    yu_string_append(tmp,rsr_io_buffer,count);
-    p = tmp->str;
-    end = p + tmp->len;
+    yu_string_append(trn_reply_data,rsr_io_buffer,count);
+    p = trn_reply_data->str;
+    end = p + trn_reply_data->len;
     while (p != end) {
       if (strncmp(p,cl,sizeof(cl)-1) == 0) {
         p += sizeof(cl)-1;
         length = atoi(p);
-        while (strncmp(p,"\r\n\r\n",4) != 0) p++;
-        p += 4;
+        while (strncmp(p,"\r\n\r\n",4) != 0 && p != end) p++;
+        if (p != end) {
+          p += 4;
+        }
         if (strnlen(p,length) >= length) {
-          reply_begin = p;
           close(rsr_sock_fd);
         }
+        break;
+      } else if (strncmp(p, "\r\n\r\n",4) == 0) {
+        nolen = 1;
         break;
       }
       p++;
     }
   }
-  log_trace(g_log_domain, "%s\n", tmp->str);
+  log_trace(g_log_domain, "%s\n", trn_reply_data->str);
 
-  yu_string_append(trn_reply_data,reply_begin,length);
-
-  yu_string_free(tmp);
   return 0;
 }
 
@@ -641,9 +641,12 @@ static int select_active_module(void) {
 
 static int scan_module_dirs(void) {
   YukkipasteModuleInfo  module_info;
+  YukkipasteModuleInfo  exist_info;
   YUString             *fullpath;
   int                   i;
+  int                   n;
   int                   len;
+  int                   existed;
   char                 *path;
   DIR                  *directory;
   struct dirent        *entry;
@@ -658,7 +661,9 @@ static int scan_module_dirs(void) {
   fullpath = yu_string_new();
 
   for (i = 0; i < g_module_paths->len; i++) {
+    yu_string_clear(fullpath);
     path = yu_pointer_array_index(g_module_paths,i);
+    log_debug(g_log_domain, "entering %s\n", path);
     directory = opendir(path);
     if (directory == 0) {
       log_debug(g_log_domain, "%s: %s\n", strerror(errno), path);
@@ -745,7 +750,23 @@ static int scan_module_dirs(void) {
       LOAD_PPTR_OR_FAIL(PTR_DATA, char**);
       LOAD_PPTR_OR_FAIL(PTR_PRIVATE, int*);
       LOAD_PPTR_OR_FAIL(PTR_RUN, int*);
-        
+     
+      existed = 0;
+      for (n = 0; n < g_paste_modules->len; n++) {
+        exist_info = yu_array_index(g_paste_modules, YukkipasteModuleInfo, n);
+        if (strcmp(exist_info.MODULE_NAME,module_info.MODULE_NAME) == 0) {
+          log_debug(g_log_domain, "Not adding duplicated module %s (%s)\n",
+                    module_info.MODULE_NAME, fullpath->str);
+          dlclose(module_info.handle);   
+          existed = 1;
+          break;
+        }
+      }
+
+      if (existed) {
+        continue;
+      }
+
       yu_array_append(g_paste_modules,&module_info);
       log_trace(g_log_domain, "Loaded module %s (%s)\n", 
                 module_info.MODULE_NAME, fullpath->str);

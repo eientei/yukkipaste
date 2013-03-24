@@ -52,6 +52,11 @@ target_link_libraries(${PROJECT_NAME}
 install_targets(/bin ${PROJECT_NAME})
 
 
+
+
+
+
+
 add_library(pocoo MODULE
   src/yukkipaste-modules/pocoo/module.c
   )
@@ -60,6 +65,10 @@ target_link_libraries(pocoo
   yutils
   )
 install_targets(${YUKKIPASTE_MODULES_DIR} pocoo)
+
+
+
+
 
 add_library(codepad MODULE
   src/yukkipaste-modules/codepad/module.c
@@ -70,6 +79,24 @@ target_link_libraries(codepad
   )
 
 install_targets(${YUKKIPASTE_MODULES_DIR} codepad)
+
+
+
+
+
+add_library(dpaste MODULE
+  src/yukkipaste-modules/dpaste/module.c
+  )
+
+target_link_libraries(dpaste
+  yutils
+  )
+
+install_targets(${YUKKIPASTE_MODULES_DIR} dpaste)
+
+
+
+
 
 file(GLOB headers-api
   "${CMAKE_SOURCE_DIR}/src/yukkipaste-api/*.h"

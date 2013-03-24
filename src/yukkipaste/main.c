@@ -231,7 +231,7 @@ static int mod_process_reply(void) {
   ret = g_active_module.PROCESS_REPLY_FUNC(trn_reply_data->str, 
                                            &trn_uri, &trn_error);
 
-  if (trn_error != 0) {
+  if (strlen(trn_error) != 0) {
     log_msg(g_log_domain, "Error received from pastebin: %s\n", trn_error);
     return 1;
   }

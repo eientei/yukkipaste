@@ -24,11 +24,11 @@ RDEPEND="
 "
 
 src_compile() {
-	emake -j1 || die
+	emake || die
 }
 
 src_install() {
-	emake -j1 install DESTDIR="${D}/usr" || die
+	emake install DESTDIR="${D}/usr" || die
 }
 
 pkg_postinst() {

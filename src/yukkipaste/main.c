@@ -227,7 +227,20 @@ int main(int argc, char **argv) {
 
 static int mod_process_reply(void) {
   int ret;
-  ret = g_active_module.PROCESS_REPLY_FUNC(trn_reply_data->str, trn_uri);
+  yu_string_clear(trn_error);
+  ret = g_active_module.PROCESS_REPLY_FUNC(trn_reply_data->str, 
+                                           trn_uri, trn_error);
+
+  if (trn_error->len != 0) {
+    log_msg(g_log_domain, "Error received from pastebin: %s\n", trn_error->str);
+    return 1;
+  }
+
+  if (trn_uri->len == 0 || ret != 0) {
+    log_msg(g_log_domain, "Error parsing pastebin reply.\n");
+    return 1;
+  }
+
   log_msg(g_log_domain, "%s\n", trn_uri->str);
   return ret;
 }

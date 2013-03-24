@@ -62,7 +62,7 @@ int FORM_REQUEST_FUNC(YUString    *post,
 }
 
 
-int PROCESS_REPLY_FUNC(char *reply, YUString *uri) {
+int PROCESS_REPLY_FUNC(char *reply, YUString *uri, YUString *err) {
   char     *p;
   char     *beg;
   

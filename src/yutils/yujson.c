@@ -76,6 +76,6 @@ int json_extract_string(YUString *out, char *in, size_t in_len,
     }
   }
 
-  return 0;
+  return 1;
 }
 

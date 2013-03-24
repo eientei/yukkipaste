@@ -69,6 +69,7 @@ int FORM_REQUEST_FUNC(YUString *,
 
 /* type safety enforcer */
 int PROCESS_REPLY_FUNC(char *,
+                       YUString *,
                        YUString *);
 
 
@@ -81,6 +82,7 @@ typedef int (*form_request_t)(YUString *,          /* POST request       [OUT] *
                               YUString *);         /* Paste data section [OUT] */
 
 typedef int (*process_reply_t)(char *,             /* Received reply     [ IN] */
-                               YUString *);        /* Resulting URI      [OUT] */
+                               YUString *,         /* Resulting URI      [OUT] */
+                               YUString *);        /* Resultting error   [OUT] */
 
 #endif /* __YU_YUKKIPASTE_MODULE__ */

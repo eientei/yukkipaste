@@ -357,11 +357,9 @@ int FORM_REQUEST_FUNC(YUString    *post,
 }
 
 
-int PROCESS_REPLY_FUNC(char     *reply, YUString *uri) {
+int PROCESS_REPLY_FUNC(char *reply, YUString *uri, YUString *err) {
   int ret = 0;
-  YUString *err = 0;
 
-  err = yu_string_new();
   yu_string_append0(uri,PTR_URI);
   
   if (uri->str[uri->len-1] != '/') {
@@ -375,17 +373,16 @@ int PROCESS_REPLY_FUNC(char     *reply, YUString *uri) {
   }
   if (err->len > 0) {
     ret = 1;
-    log_error(PTR_LOG_DOMAIN, "Error received from pocoo: \"%s\"", err->str);
     goto process_reply_func_free_and_return;
   }
   
   if (json_extract_string0(uri, reply, "data") != 0) {
     ret = 1;
+    printf("WTF\n");
     goto process_reply_func_free_and_return;
   }
 
 process_reply_func_free_and_return:
-  yu_string_free(err);
   return ret;
 }
 

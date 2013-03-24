@@ -26,7 +26,6 @@ typedef struct {
   char           **PTR_DATA;
   int             *PTR_PRIVATE;
   int             *PTR_RUN;
-  YULog          **PTR_LOG_DOMAIN;
 } YukkipasteModuleInfo;
 
 #endif /* __YU_YUKKIPASTE_MODULEINFO__ */

@@ -370,7 +370,6 @@ static int mod_init(void) {
   *g_active_module.PTR_DATA       = ptr_data;
   *g_active_module.PTR_PRIVATE    = ptr_private;
   *g_active_module.PTR_RUN        = ptr_run;
-  *g_active_module.PTR_LOG_DOMAIN = g_log_domain;
  
   return g_active_module.INIT_MODULE_FUNC();
 }
@@ -746,7 +745,6 @@ static int scan_module_dirs(void) {
       LOAD_PPTR_OR_FAIL(PTR_DATA, char**);
       LOAD_PPTR_OR_FAIL(PTR_PRIVATE, int*);
       LOAD_PPTR_OR_FAIL(PTR_RUN, int*);
-      LOAD_PPTR_OR_FAIL(PTR_LOG_DOMAIN, YULog**);
         
       yu_array_append(g_paste_modules,&module_info);
       log_trace(g_log_domain, "Loaded module %s (%s)\n", 

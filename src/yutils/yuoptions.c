@@ -269,7 +269,6 @@ void yu_options_parse(YUOptionParser *parser, YUString *error) {
 
 void yu_options_produce_help(YUOptionParser *parser, YUString *out) {
   YUOption       opt;
-  int            total_len;
   int            intrm_len;
   int            len;
   int            long_maxlen = 0;
@@ -280,7 +279,6 @@ void yu_options_produce_help(YUOptionParser *parser, YUString *out) {
   int            was_shorts = 0;
   int            i;
   int            n;
-  int            m;
   int            termwidth = 80;
   char          *p;
   char          *beg;

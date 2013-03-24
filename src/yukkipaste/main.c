@@ -247,12 +247,9 @@ static int mod_process_reply(void) {
 
 static int transfer_data(void) {
   int          count = 0;
-  int          nolen = 0;
   char        *p;
   char        *end;
-  char        *reply_begin = 0;
   static char  cl[] = "Content-Length: ";
-  static char  ch[] = "</html>";
   int          length = 0;
 
   log_trace(g_log_domain, "%s\n", trn_request_headers->str);
@@ -296,7 +293,6 @@ static int transfer_data(void) {
         }
         break;
       } else if (strncmp(p, "\r\n\r\n",4) == 0) {
-        nolen = 1;
         break;
       }
       p++;

@@ -14,12 +14,12 @@ typedef enum {
 } YUOptionType;
 
 typedef struct {
-  const char   *long_name;
+  char         *long_name;
   char          short_name;
   YUOptionType  arg_type;
   void         *arg_data;
-  const char   *description;
-  const char   *arg_description;
+  char         *description;
+  char         *arg_description;
 } YUOption;
 
 typedef struct {

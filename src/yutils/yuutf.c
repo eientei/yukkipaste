@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 /* debugging function */
+/*
 void print_bytes(int c, int len) {
   unsigned int x = 1;
   int i;
@@ -19,7 +20,7 @@ void print_bytes(int c, int len) {
   }
   write(1,"\n",1);
 }
-
+*/
 
 
 /**

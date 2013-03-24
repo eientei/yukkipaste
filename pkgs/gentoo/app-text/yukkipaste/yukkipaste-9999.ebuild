@@ -33,7 +33,7 @@ src_install() {
 
 pkg_postinst() {
 	elog "Consider using configuration file located in"
-	elog "> ${ROOT}/usr/share/doc/yukkipaste/config.example"
+	elog "> ${ROOT}usr/share/doc/yukkipaste/config.example"
 	elog "to apply it, put it in following location:"
 	elog "> ~/.config/yukkipaste/config"
 }

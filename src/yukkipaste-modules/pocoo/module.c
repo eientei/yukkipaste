@@ -322,18 +322,26 @@ static YUString *escaped_filename = 0;
 static YUString *escaped_mime     = 0;
 static YUString *escaped_code     = 0;
 
+static YUString *yus_data = 0;
+static YUString *yus_uri  = 0;
+static YUString *yus_err  = 0;
+
 
 int INIT_MODULE_FUNC(void) {
   escaped_lang     = yu_string_new();
   escaped_filename = yu_string_new();
   escaped_mime     = yu_string_new();
   escaped_code     = yu_string_new();
+  yus_data         = yu_string_new();
+  yus_uri          = yu_string_new();
+  yus_err          = yu_string_new();
   return 0;
 }
 
-int FORM_REQUEST_FUNC(YUString    *post,
-                      YUString    *type,
-                      YUString    *data) {
+int FORM_REQUEST_FUNC(char **post,
+                      char **type,
+                      char **data,
+                      int   *len) {
   int parent_id = 0;
 
   escape_json_string0(escaped_lang,PTR_LANG);  
@@ -343,7 +351,7 @@ int FORM_REQUEST_FUNC(YUString    *post,
 
   parent_id = atoi(PTR_PARENT);
 
-  yu_string_sprintfa(data, json_request,
+  yu_string_sprintfa(yus_data, json_request,
                      escaped_lang->str,
                      escaped_filename->str,
                      escaped_mime->str,
@@ -351,61 +359,53 @@ int FORM_REQUEST_FUNC(YUString    *post,
                      PTR_PRIVATE,
                      escaped_code->str);
 
-  yu_string_append0(post,"/json/?method=pastes.newPaste");
-  yu_string_append0(type,"application/json");
+  *post = "/json/?method=pastes.newPaste";
+  *type = "application/json";
+  *data = yus_data->str;
+  *len  = yus_data->len;
   return 0;
 }
 
 
-int PROCESS_REPLY_FUNC(char *reply, YUString *uri, YUString *err) {
+int PROCESS_REPLY_FUNC(char *reply, char **uri, char **err) {
   int ret = 0;
 
-  yu_string_append0(uri,PTR_URI);
+  yu_string_append0(yus_uri,PTR_URI);
   
-  if (uri->str[uri->len-1] != '/') {
-    yu_string_append0(uri,"/");
+  if (yus_uri->str[yus_uri->len-1] != '/') {
+    yu_string_append0(yus_uri,"/");
   }
-  yu_string_append0(uri,"show/");
+  yu_string_append0(yus_uri,"show/");
 
-  if (json_extract_string0(err, reply, "error") != 0) {
+  if (json_extract_string0(yus_err, reply, "error") != 0) {
     ret = 1;
     goto process_reply_func_free_and_return;
   }
-  if (err->len > 0) {
+  if (yus_err->len > 0) {
     ret = 1;
     goto process_reply_func_free_and_return;
   }
   
-  if (json_extract_string0(uri, reply, "data") != 0) {
+  if (json_extract_string0(yus_uri, reply, "data") != 0) {
     ret = 1;
-    printf("WTF\n");
     goto process_reply_func_free_and_return;
   }
+
+  *uri = yus_uri->str;
+  *err = yus_err->str;
 
 process_reply_func_free_and_return:
   return ret;
 }
 
 int DEINIT_MODULE_FUNC(void) {
-  if (escaped_lang != 0) {
-    yu_string_free(escaped_lang);
-    escaped_lang = 0;
-  }
-
-  if (escaped_filename != 0) {
-    yu_string_free(escaped_filename);
-    escaped_filename = 0;
-  }
-
-  if (escaped_mime != 0) {
-    yu_string_free(escaped_mime);
-    escaped_mime = 0;
-  }
-
-  if (escaped_code != 0) {
-    yu_string_free(escaped_code);
-    escaped_code = 0;
-  }
+  yu_string_guarded_free0(escaped_lang);
+  yu_string_guarded_free0(escaped_filename);
+  yu_string_guarded_free0(escaped_mime);
+  yu_string_guarded_free0(escaped_code);
+  yu_string_guarded_free0(yus_data);
+  yu_string_guarded_free0(yus_uri);
+  yu_string_guarded_free0(yus_err);
   return 0;
 }
 

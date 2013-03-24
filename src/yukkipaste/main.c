@@ -63,13 +63,14 @@ static int                   rsr_file_fd             = 0;
 
 /* Transitions */
 static YUString             *trn_file_contents       = 0;
-static YUString             *trn_request_data        = 0;
+static char                 *trn_request_data        = 0;
+static int                   trn_request_data_len    = 0;
 static YUString             *trn_request_headers     = 0;
-static YUString             *trn_request_path        = 0;
-static YUString             *trn_content_type        = 0;
+static char                 *trn_request_path        = 0;
+static char                 *trn_content_type        = 0;
 static YUString             *trn_reply_data          = 0;
-static YUString             *trn_uri                 = 0;
-static YUString             *trn_error               = 0;
+static char                 *trn_uri                 = 0;
+static char                 *trn_error               = 0;
 static YUString             *trn_userconf_error      = 0;
 
 /* CLI argument values */
@@ -227,21 +228,20 @@ int main(int argc, char **argv) {
 
 static int mod_process_reply(void) {
   int ret;
-  yu_string_clear(trn_error);
   ret = g_active_module.PROCESS_REPLY_FUNC(trn_reply_data->str, 
-                                           trn_uri, trn_error);
+                                           &trn_uri, &trn_error);
 
-  if (trn_error->len != 0) {
-    log_msg(g_log_domain, "Error received from pastebin: %s\n", trn_error->str);
+  if (trn_error != 0) {
+    log_msg(g_log_domain, "Error received from pastebin: %s\n", trn_error);
     return 1;
   }
 
-  if (trn_uri->len == 0 || ret != 0) {
+  if (trn_uri == 0 || ret != 0) {
     log_msg(g_log_domain, "Error parsing pastebin reply.\n");
     return 1;
   }
 
-  log_msg(g_log_domain, "%s\n", trn_uri->str);
+  log_msg(g_log_domain, "%s\n", trn_uri);
   return ret;
 }
 
@@ -266,10 +266,10 @@ static int transfer_data(void) {
   
   count = 0;
   
-  log_trace(g_log_domain, "%s\n", trn_request_data->str);
+  log_trace(g_log_domain, "%s\n", trn_request_data);
   while ((count = send(rsr_sock_fd,
-                       trn_request_data->str+count,
-                       trn_request_data->len-count,0)) > 0);
+                       trn_request_data+count,
+                       trn_request_data_len-count,0)) > 0);
     
   if (count < 0) {
     log_error(g_log_domain,"send: %s\n", strerror(errno));
@@ -344,19 +344,20 @@ open_socket_free_and_return:
 static int form_headers(void) {
   yu_string_sprintfa(trn_request_headers, headers,
                      g_pastebin_root,
-                     trn_request_path->str,
+                     trn_request_path,
                      g_pastebin_host,
                      g_pastebin_port,
-                     trn_content_type->str,
-                     trn_request_data->len);
+                     trn_content_type,
+                     trn_request_data_len);
 
   return 0;
 }
 
 static int mod_form_request(void) {
-  return g_active_module.FORM_REQUEST_FUNC(trn_request_path,
-                                           trn_content_type,
-                                           trn_request_data);
+  return g_active_module.FORM_REQUEST_FUNC(&trn_request_path,
+                                           &trn_content_type,
+                                           &trn_request_data,
+                                           &trn_request_data_len);
 }
 
 static int mod_init(void) {
@@ -949,13 +950,8 @@ static int init(void) {
   g_paste_modules = yu_array_new(sizeof(YukkipasteModuleInfo));
 
   trn_file_contents   = yu_string_new();
-  trn_request_data    = yu_string_new();
   trn_request_headers = yu_string_new();
-  trn_request_path    = yu_string_new();
-  trn_content_type    = yu_string_new();
   trn_reply_data      = yu_string_new();
-  trn_uri             = yu_string_new();
-  trn_error           = yu_string_new();
   trn_userconf_error  = yu_string_new();
 
   memset(&g_active_module,0,sizeof(YukkipasteModuleInfo));
@@ -1003,21 +999,10 @@ static void cleanup(void) {
     g_paste_modules = 0;
   }
   
-#define FREE_YU_STRING(STR) \
-  if (STR != 0) { \
-    yu_string_free(STR); \
-    STR = 0; \
-  }
-  
-  FREE_YU_STRING(trn_file_contents);
-  FREE_YU_STRING(trn_request_data);
-  FREE_YU_STRING(trn_request_headers);
-  FREE_YU_STRING(trn_request_path);
-  FREE_YU_STRING(trn_content_type);
-  FREE_YU_STRING(trn_reply_data);
-  FREE_YU_STRING(trn_uri);
-  FREE_YU_STRING(trn_error);
-  FREE_YU_STRING(trn_userconf_error);
+  yu_string_guarded_free0(trn_file_contents);
+  yu_string_guarded_free0(trn_request_headers);
+  yu_string_guarded_free0(trn_reply_data);
+  yu_string_guarded_free0(trn_userconf_error);
 
   if (g_pastebin_host != 0) {
     free(g_pastebin_host);

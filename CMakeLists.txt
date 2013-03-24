@@ -23,7 +23,7 @@ include_directories(
 
 set(YUKKIPASTE_MODULES_DIR /share/yukkipaste/modules)
 
-add_library(yutils SHARED
+add_library(yutils STATIC
   src/yutils/yustring.c
   src/yutils/yuutf.c
   src/yutils/yulog.c
@@ -37,7 +37,7 @@ add_library(yutils SHARED
   src/yutils/yusectconf.c
   )
 
-install_targets(/lib yutils)
+set_target_properties(yutils PROPERTIES COMPILE_FLAGS "-fPIC")
 
 add_executable(${PROJECT_NAME}
   src/yukkipaste/main.c
@@ -59,7 +59,6 @@ add_library(pocoo MODULE
 target_link_libraries(pocoo
   yutils
   )
-
 install_targets(${YUKKIPASTE_MODULES_DIR} pocoo)
 
 add_library(codepad MODULE

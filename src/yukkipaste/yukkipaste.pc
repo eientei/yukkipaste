@@ -17,4 +17,4 @@ Description: Modular pastebin file uploader
 URL: http://github.com/eientei/yukkipaste
 Version: 1.1
 Cflags: -I${includedir}/yukkipaste
-Libs: -L${libdir} -lyutils
+Libs: -L${libdir}

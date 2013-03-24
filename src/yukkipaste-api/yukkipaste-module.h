@@ -1,10 +1,6 @@
 #ifndef __YU_YUKKIPASTE_MODULE__
 #define __YU_YUKKIPASTE_MODULE__
 
-#include "yutils/yulog.h"
-#include "yutils/yustring.h"
-#include "yutils/yupointerarray.h"
-
 /* each module must have this symbols defined */
 /* otherwise module would not be loaded       */
 #define MODULE_NAME             yu_module_name          /* char*           */
@@ -24,7 +20,6 @@
 #define PTR_DATA                yu_ptr_data             /* char*           */
 #define PTR_PRIVATE             yu_ptr_private          /* int             */
 #define PTR_RUN                 yu_ptr_run              /* int             */
-#define PTR_LOG_DOMAIN          yu_ptr_log_domain       /* YULog*          */
 
 #define INIT_MODULE_FUNC        yu_init_module          /* Initialize state*/
 #define DEINIT_MODULE_FUNC      yu_deinit_module        /* Deinitialize    */
@@ -53,8 +48,7 @@
   char  *PTR_AUTHOR     = 0; \
   char  *PTR_DATA       = 0; \
   int    PTR_PRIVATE    = 0; \
-  int    PTR_RUN        = 0; \
-  YULog *PTR_LOG_DOMAIN = 0;
+  int    PTR_RUN        = 0;
 
 /* type safety enforcer */
 int INIT_MODULE_FUNC(void);
@@ -63,26 +57,28 @@ int INIT_MODULE_FUNC(void);
 int DEINIT_MODULE_FUNC(void);
 
 /* type safety enforcer */
-int FORM_REQUEST_FUNC(YUString *,
-                      YUString *,
-                      YUString *);
+int FORM_REQUEST_FUNC(char **,
+                      char **,
+                      char **,
+                      int   *);
 
 /* type safety enforcer */
 int PROCESS_REPLY_FUNC(char *,
-                       YUString *,
-                       YUString *);
+                       char **,
+                       char **);
 
 
 typedef int (*init_module_t)(void);
 
 typedef int (*deinit_module_t)(void);
 
-typedef int (*form_request_t)(YUString *,          /* POST request       [OUT] */
-                              YUString *,          /* Content-Type       [OUT] */
-                              YUString *);         /* Paste data section [OUT] */
+typedef int (*form_request_t)(char **,          /* POST request       [OUT] */
+                              char **,          /* Content-Type       [OUT] */
+                              char **,          /* Paste data section [OUT] */
+                              int   *);         /* Paste data length  [OUT] */
 
-typedef int (*process_reply_t)(char *,             /* Received reply     [ IN] */
-                               YUString *,         /* Resulting URI      [OUT] */
-                               YUString *);        /* Resultting error   [OUT] */
+typedef int (*process_reply_t)(char *,          /* Received reply     [ IN] */
+                               char **,         /* Resulting URI      [OUT] */
+                               char **);        /* Resultting error   [OUT] */
 
 #endif /* __YU_YUKKIPASTE_MODULE__ */

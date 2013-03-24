@@ -21,7 +21,10 @@ Build for x86_64 and i686 GNU/Linux are available at
 
     http://yukkuri.eientei.org/yukkipaste/crossout/
 
-Binary deb avialable, thanks to madduck@RusNet
+Ebuild is located in directory:
+    pkgs/gentoo/app-text/yukkipaste
+
+Binary deb is avialable, thanks to madduck@RusNet
 
     http://yukkuri.eientei.org/yukkipaste/pkgs/deb/
 

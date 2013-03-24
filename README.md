@@ -31,23 +31,23 @@ Binary deb is avialable, thanks to madduck@RusNet
 
 Sample --help output:
 
-    ./build/yukkipaste [OPTIONS...]
-
+    yukkipaste [OPTIONS...]
+    
         --help,           -h            Prints help message
         --modules-dir,    -d DIR        Appends module path. Stackable.
         --list-modules                  Lists available modules
-        --verbose,        -v            Increases verbosity level. 3 max.
+        --verbose,        -v            Increases verbosity level
         --author,         -a STRING     Your name
         --uri,            -u URI        Pastebin URI
         --language,       -l LANG       Paste language
-        --list-languages                Lists avialable languages for selected module
+        --list-languages                Lists available languages for selected modul
+                                        e
         --remote-name,    -n NAME       Remote file name
         --mime-type          MIME       Paste mime type
         --module,         -m MODULE     Selects module to use
-        --parent-id,      -p ID         Parent paste id
-        --secret,         -s            Marks a secret (private) paste
-        --run,            -r            Marks paste as runnable on pastebin side
-
+        --parent-id          ID         Parent paste id
+        --private,        -p            Marks paste as private
+        --run,            -r            Marks paste as runnable
 
 
 Module compilation guide:

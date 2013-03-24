@@ -21,6 +21,9 @@ Build for x86_64 and i686 GNU/Linux are available at
 
     http://yukkuri.eientei.org/yukkipaste/crossout/
 
+Binary deb avialable, thanks to madduck@RusNet
+
+    http://yukkuri.eientei.org/yukkipaste/pkgs/deb/
 
 Sample --help output:
 
@@ -48,3 +51,5 @@ Module compilation guide:
 Assuming you have installed yukkipaste at DESTDIR=/usr,
 
     gcc `PKG_CONFIG_PATH=/usr/lib/pkgconfig/ pkg-config yukkipaste --cflags --libs` -shared -fPIC module.c
+    
+

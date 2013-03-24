@@ -1,42 +1,44 @@
+######## move this file to ~/.config/yukkipaste/config
+
 ######## GLOBAL-ONLY OPTIONS ########
 
 #### modules directories, separated by colon (:) character
-# modules_dirs = /some/custom/location:/some/other/location
+modules_dirs = /some/custom/location:/some/other/location:build
 
 #### default module to use
-# module = pocoo
+module = pocoo
 
 #### verbosity level, from 0 to 6
-# verbosity = 0 
+verbosity = 3
 
 ######## GLOBAL AND PER-MODULE OPTIONS ########
 
 #### author (your name)
-# author = yukkipaste
+author = yukkipaste
 
 #### default uri for paste
-# uri = http://paste.eientei.org
+uri = http://paste.eientei.org
 
 #### default language to use
-# lang = c
+lang = c
 
 #### whether paste private or not
-# private = 0
+private = 0
 
 #### whether paste as runnable or not
-# run = 0
+run = 0
 
 ######## PER-MODULE OPTIONS EXAMPLE #######
-#[pocoo]
-# author = yukkipaste
-# uri = http://paste.eientei.org
-# lang = c
-# private = 0
-# run = 0
+[pocoo]
+author = yukkipaste
+uri = http://paste.eientei.org
+lang = c
+private = 0
+run = 0
 
-#[codepad]
-# author = yukkipaste
-# uri = http://codepad.org
-# lang = C
-# private = 0
-# run = 1
+[codepad]
+author = yukkipaste
+uri = http://codepad.org
+lang = C
+private = 0
+run = 4

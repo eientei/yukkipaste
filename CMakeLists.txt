@@ -85,8 +85,12 @@ configure_file(
   @ONLY
   )
 
-install_files(/lib/pkgconfig .pc ${PROJECT_BINARY_DIR}/yukkipaste.pc)
-install_files(/include/yukkipaste/yukkipaste-api .h ${headers-api})
-install_files(/include/yukkipaste/yutils         .h ${headers-utils})
-install(FILES ${CMAKE_SOURCE_DIR}/src/yukkipaste/config.example
-        DESTINATION ~/.config/yukkipaste)
+install_files(/lib/pkgconfig .pc 
+              ${PROJECT_BINARY_DIR}/yukkipaste.pc)
+install_files(/include/yukkipaste/yukkipaste-api .h 
+              ${headers-api})
+install_files(/include/yukkipaste/yutils         .h 
+              ${headers-utils})
+
+install_files(/share/doc/yukkipaste              .example
+  ${CMAKE_SOURCE_DIR}/src/yukkipaste/config.example)

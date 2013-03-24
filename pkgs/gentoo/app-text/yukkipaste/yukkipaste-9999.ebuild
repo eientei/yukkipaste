@@ -24,7 +24,7 @@ RDEPEND="
 "
 
 src_compile() {
-	emake || die
+	emake DESTDIR="${ROOT}usr" || die
 }
 
 src_install() {

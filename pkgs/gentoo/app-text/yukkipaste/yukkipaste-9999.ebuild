@@ -24,11 +24,11 @@ RDEPEND="
 "
 
 src_compile() {
-	emake DESTDIR="${ROOT}usr" || die
+	emake INSTALLDIR="${ROOT}usr" || die
 }
 
 src_install() {
-	emake install DESTDIR="${D}/usr" || die
+	emake install DESTDIR="${D}" || die
 }
 
 pkg_postinst() {

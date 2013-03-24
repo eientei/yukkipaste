@@ -48,14 +48,10 @@ libs-clean:
 
 #### MAIN ####
 
-main: main-configure main-make
-
-main-configure:
+main:
 	$(MKDIRP) ${CMAKE_BUILD}
 	$(CD) ${CMAKE_BUILD} && \
 		$(CMAKE) ${CMAKE_OPTS} -DCMAKE_INSTALL_PREFIX=${DESTDIR}  ${CMAKE_ROOT}
-
-main-make:
 	$(CD) ${CMAKE_BUILD} && $(MAKE)
 
 main-clean:

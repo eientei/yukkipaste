@@ -184,30 +184,23 @@ int main(int argc, char **argv) {
   signal(SIGINT,  signal_cleanup);
   signal(SIGSEGV, signal_cleanup);
 
-  if (init() != 0) {
-    return 1;
+#define EXEC_OR_FAIL(F) \
+  if (F() != 0) { \
+    return 1; \
   }
 
-  if (parse_userconfig() != 0) {
-    return 1;
-  }
+  EXEC_OR_FAIL(init);
+  EXEC_OR_FAIL(parse_userconfig);
+  
 
   if (parse_options(argc, argv) != 0) {
     return 1;
   }
 
-  if (interpolate_props() != 0) {
-    return 1;
-  }
-
-  if (scan_module_dirs() != 0) {
-    return 1;
-  }
-  
-  if (select_active_module() != 0) {
-    return 1;
-  }
-
+  EXEC_OR_FAIL(interpolate_props);
+  EXEC_OR_FAIL(scan_module_dirs);
+  EXEC_OR_FAIL(select_active_module);
+ 
   if (cli_list_modules_flag) {
     action_list_modules();
     return 0;
@@ -218,45 +211,16 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  if (parse_uri() != 0) {
-    return 1;
-  }
-
-  if (parse_language() != 0) {
-    return 1;
-  }
-
-  if (open_file() != 0) {
-    return 1;
-  }
-
-  if (read_file() != 0) {
-    return 1;
-  }
-
-  if (mod_init() != 0) {
-    return 1;
-  }
-
-  if (mod_form_request() != 0) {
-    return 1;
-  }
-
-  if (form_headers() != 0) {
-    return 1;
-  }
-
-  if (open_socket() != 0) {
-    return 1;
-  }
-
-  if (transfer_data() != 0) {
-    return 1;
-  }
-
-  if (mod_process_reply() != 0) {
-    return 1;
-  }
+  EXEC_OR_FAIL(parse_uri);
+  EXEC_OR_FAIL(parse_language);
+  EXEC_OR_FAIL(open_file);
+  EXEC_OR_FAIL(read_file);
+  EXEC_OR_FAIL(mod_init);
+  EXEC_OR_FAIL(mod_form_request);
+  EXEC_OR_FAIL(form_headers);
+  EXEC_OR_FAIL(open_socket);
+  EXEC_OR_FAIL(transfer_data);
+  EXEC_OR_FAIL(mod_process_reply);
 
   return 0;  
 }

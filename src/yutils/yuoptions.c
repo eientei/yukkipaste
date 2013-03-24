@@ -282,8 +282,11 @@ void yu_options_produce_help(YUOptionParser *parser, YUString *out) {
   int            n;
   int            m;
   int            termwidth = 80;
+  char          *p;
+  char          *beg;
   struct winsize w;
   
+
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 
   if (w.ws_col > 0) {
@@ -392,12 +395,31 @@ void yu_options_produce_help(YUOptionParser *parser, YUString *out) {
       yu_string_append0(out, " ");
     }
 
-    total_len = strlen(opt.description);
-    len = total_len;
-    intrm_len = descr_len;
-    if (len < descr_len) {
-      intrm_len = len;
+    p = opt.description;
+    while (isspace(*p) && *p != 0) p++;
+    beg = p;
+    n = 0;
+    intrm_len = 0;
+
+    while (*p != 0) {
+      p++;
+      if (isspace(*p) || *p == 0) {
+          intrm_len += p-beg + 1;
+          if (intrm_len > descr_len) {
+            yu_string_append0(out,"\n");
+            for (n = 0; n < prefix_len; n++) {
+              yu_string_append0(out, " ");
+            }
+            
+          }
+          yu_string_append(out,beg,p-beg);
+          yu_string_append0(out," ");
+          while (isspace(*p) && *p != 0) p++;
+          beg = p;
+      }
     }
+
+    /*
     for (n = 0; n < total_len; n += descr_len) {
       intrm_len = total_len - n;
       if (intrm_len > descr_len) {
@@ -411,6 +433,7 @@ void yu_options_produce_help(YUOptionParser *parser, YUString *out) {
         }
       }
     }
+    */
 
     yu_string_append0(out,"\n");
   }

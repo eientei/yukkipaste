@@ -236,7 +236,7 @@ static int mod_process_reply(void) {
     return 1;
   }
 
-  if (trn_uri == 0 || ret != 0) {
+  if (strlen(trn_uri) == 0 || ret != 0) {
     log_msg(g_log_domain, "Error parsing pastebin reply.\n");
     return 1;
   }

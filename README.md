@@ -40,8 +40,7 @@ Sample --help output:
         --author,         -a STRING     Your name
         --uri,            -u URI        Pastebin URI
         --language,       -l LANG       Paste language
-        --list-languages                Lists available languages for selected modul
-                                        e
+        --list-languages                Lists available languages for selected module
         --remote-name,    -n NAME       Remote file name
         --mime-type          MIME       Paste mime type
         --module,         -m MODULE     Selects module to use

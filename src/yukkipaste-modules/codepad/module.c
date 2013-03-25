@@ -8,28 +8,28 @@
 MODULE_INFO("codepad", "Codepad pastebin interface", "Iamtakingiteasy", "1.0")
 
 /* Defines pastebin-specific constants */
-PASTEBIN_INFO("http://codepad.org", "Plain Text")
+PASTEBIN_INFO("http://codepad.org", "text")
 
 /* Defines loads of variables and initializes them from host system */
 /* see yukkipaste-api/yukkipaste-module.h for details */
 DEFAULT_GLOBAL_VARS
 
 /* NULL-terminated list of available languages */
-char *PASTEBIN_AVAIL_LANGS[] = {
-  "C",
-  "C++",
-  "D",
-  "Haskell",
-  "Lua",
-  "OCaml",
-  "PHP",
-  "Perl",
-  "Plain Text",
-  "Python",
-  "Ruby",
-  "Scheme",
-  "Tcl",
-  0
+char *PASTEBIN_AVAIL_LANGS[][2] = {
+  { "c",       "C"          },
+  { "cpp",     "C++"        },
+  { "d",       "D"          },
+  { "haskell", "Haskell"    },
+  { "lua",     "Lua"        },
+  { "ocaml",   "OCaml"      },
+  { "php",     "PHP"        },
+  { "perl",    "Perl"       },
+  { "text",    "Plain Text" },
+  { "python",  "Python"     },
+  { "ruby",    "Ruby"       },
+  { "scheme",  "Scheme"     },
+  { "tcl",     "Tcl"        },
+  { 0,         0            }
 };
 
 static YUString *yus_post = 0;

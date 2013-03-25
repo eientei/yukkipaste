@@ -20,7 +20,7 @@ author = yukkipaste
 uri = http://paste.eientei.org
 
 #### default language to use
-lang = c
+lang = text
 
 #### whether paste private or not
 private = 0
@@ -32,13 +32,13 @@ run = 0
 [pocoo]
 author = yukkipaste
 uri = http://paste.eientei.org
-lang = c
+lang = text
 private = 0
 run = 0
 
 [codepad]
 author = yukkipaste
 uri = http://codepad.org
-lang = C
+lang = text
 private = 0
 run = 4

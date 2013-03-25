@@ -9,6 +9,7 @@
 #define MODULE_VERSION          yu_module_version       /* char*           */
 #define PASTEBIN_URI            yu_pastebin_uri         /* char*           */
 #define PASTEBIN_LANG           yu_pastebin_lang        /* char*           */
+#define PASTEBIN_MAP_LANGS      yu_pastebin_map_langs   /* int             */
 #define PASTEBIN_AVAIL_LANGS    yu_pastebin_avail_langs /* char**          */
 
 #define PTR_LANG                yu_ptr_lang             /* char*           */
@@ -37,7 +38,7 @@
 /* Shorthand for char* fields */
 #define PASTEBIN_INFO(URI, LANG) \
   char * PASTEBIN_URI  = URI; \
-  char * PASTEBIN_LANG = LANG;
+  char * PASTEBIN_LANG = LANG; \
 
 #define DEFAULT_GLOBAL_VARS \
   char  *PTR_LANG       = 0; \

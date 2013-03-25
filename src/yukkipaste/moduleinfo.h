@@ -11,7 +11,8 @@ typedef struct {
   char            *MODULE_VERSION;
   char            *PASTEBIN_URI;
   char            *PASTEBIN_LANG;
-  char           **PASTEBIN_AVAIL_LANGS;
+  char           *(*PASTEBIN_AVAIL_LANGS)[2];
+  int              PASTEBIN_MAP_LANGS;
   init_module_t    INIT_MODULE_FUNC;
   deinit_module_t  DEINIT_MODULE_FUNC;
   form_request_t   FORM_REQUEST_FUNC;

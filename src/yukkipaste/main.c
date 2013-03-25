@@ -452,7 +452,7 @@ static int open_file(void) {
 static int parse_language(void) {
   char             soundex[5];
   YUPointerArray  *variants;
-  char           **l;
+  char          *(*l)[2];
   int              ret = 0;
   int              i;
 
@@ -460,9 +460,9 @@ static int parse_language(void) {
     ptr_lang = g_active_module.PASTEBIN_LANG;
   }
 
-  for (l = g_active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
-    if (strcasecmp(*l,ptr_lang) == 0) {
-      ptr_lang = *l;
+  for (l = g_active_module.PASTEBIN_AVAIL_LANGS; (*l)[0] != 0; l++) {
+    if (strcasecmp((*l)[0],ptr_lang) == 0) {
+      ptr_lang = (*l)[1];
       return 0;
     }
   }
@@ -470,9 +470,9 @@ static int parse_language(void) {
   variants = yu_pointer_array_new(0);
   strncpy(soundex,yu_soundex(ptr_lang),5);
   
-  for (l = g_active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
-    if (strcmp(yu_soundex(*l),soundex) == 0) {
-      yu_pointer_array_append(variants,*l);
+  for (l = g_active_module.PASTEBIN_AVAIL_LANGS; (*l)[0] != 0; l++) {
+    if (strcmp(yu_soundex((*l)[0]),soundex) == 0) {
+      yu_pointer_array_append(variants,(*l)[1]);
     }
   }
 
@@ -553,10 +553,10 @@ static int parse_uri(void) {
 }
 
 static int action_list_languages(void) {
-  char **l;
+  char *(*l)[2];
 
-  for (l = g_active_module.PASTEBIN_AVAIL_LANGS; *l != 0; l++) {
-    log_msg(g_log_domain, "    - %s\n",*l);
+  for (l = g_active_module.PASTEBIN_AVAIL_LANGS; (*l)[0] != 0; l++) {
+    log_msg(g_log_domain, "    - %s\n",(*l)[0]);
   }
   return 0;
 }
@@ -656,7 +656,7 @@ static int scan_module_dirs(void) {
 
   fullpath = yu_string_new();
 
-  for (i = 0; i < g_module_paths->len; i++) {
+  for (i = g_module_paths->len-1; i >= 0; i--) {
     yu_string_clear(fullpath);
     path = yu_pointer_array_index(g_module_paths,i);
     log_debug(g_log_domain, "entering %s\n", path);
@@ -730,7 +730,7 @@ static int scan_module_dirs(void) {
       LOAD_PROP_OR_FAIL(MODULE_VERSION, char*);
       LOAD_PROP_OR_FAIL(PASTEBIN_URI, char*);
       LOAD_PROP_OR_FAIL(PASTEBIN_LANG, char*);
-      LOAD_PPTR_OR_FAIL(PASTEBIN_AVAIL_LANGS, char**);
+      LOAD_PPTR_OR_FAIL(PASTEBIN_AVAIL_LANGS, char*(*)[2]);
 
       LOAD_FUNC_OR_FAIL(FORM_REQUEST_FUNC);
       LOAD_FUNC_OR_FAIL(PROCESS_REPLY_FUNC);

@@ -8,28 +8,31 @@
 MODULE_INFO("dpaste", "Dpaste pastebin interface", "Iamtakingiteasy", "1.0")
 
 /* Defines pastebin-specific constants */
-PASTEBIN_INFO("http://dpaste.com", "")
+PASTEBIN_INFO("http://dpaste.com", "text")
 
 /* Defines loads of variables and initializes them from host system */
 /* see yukkipaste-api/yukkipaste-module.h for details */
 DEFAULT_GLOBAL_VARS
 
-/* NULL-terminated list of available languages */
-char *PASTEBIN_AVAIL_LANGS[] = {
-  "Python",
-  "PythonConsole",
-  "Sql",
-  "DjangoTemplate",
-  "JScript",
-  "Css",
-  "Xml",
-  "Diff",
-  "Ruby",
-  "Rhtml",
-  "Haskell",
-  "Apache",
-  "Bash",
-  0
+/* NULL-terminated list of available languages 
+ * Mapped as UI Name => Pastebin Name
+ * */
+char *PASTEBIN_AVAIL_LANGS[][2] = {
+  { "python",         "Python"         },
+  { "python-console", "PythonConsole", },
+  { "sql",            "Sql"            },
+  { "django",         "DjangoTemplate" },
+  { "js",             "JScript"        },
+  { "css",            "Css"            },
+  { "xml",            "Xml"            },
+  { "diff",           "Diff"           },
+  { "ruby",           "Ruby"           },
+  { "rhtml",          "Rhtml"          },
+  { "haskell",        "Haskell"        },
+  { "apacheconf",     "Apache"         },
+  { "bash",           "Bash"           },
+  { "text",           ""               },
+  { 0,                0                }
 };
 
 static YUString *yus_post = 0;

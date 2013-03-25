@@ -60,7 +60,6 @@ install_targets(/bin ${PROJECT_NAME})
 add_library(pocoo MODULE
   src/yukkipaste-modules/pocoo/module.c
   )
-
 target_link_libraries(pocoo
   yutils
   )
@@ -73,11 +72,9 @@ install_targets(${YUKKIPASTE_MODULES_DIR} pocoo)
 add_library(codepad MODULE
   src/yukkipaste-modules/codepad/module.c
   )
-
 target_link_libraries(codepad
   yutils
   )
-
 install_targets(${YUKKIPASTE_MODULES_DIR} codepad)
 
 
@@ -87,15 +84,20 @@ install_targets(${YUKKIPASTE_MODULES_DIR} codepad)
 add_library(dpaste MODULE
   src/yukkipaste-modules/dpaste/module.c
   )
-
 target_link_libraries(dpaste
   yutils
   )
-
 install_targets(${YUKKIPASTE_MODULES_DIR} dpaste)
 
 
 
+add_library(pastie MODULE
+  src/yukkipaste-modules/pastie/module.c
+  )
+target_link_libraries(pastie
+  yutils
+  )
+install_targets(${YUKKIPASTE_MODULES_DIR} pastie)
 
 
 file(GLOB headers-api
